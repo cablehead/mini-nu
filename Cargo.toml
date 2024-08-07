@@ -1,0 +1,12 @@
+[package]
+name = "mini-nu"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+nu-cli = "0.96.1"
+nu-command = "0.96.1"
+nu-protocol = "0.96.1"
+nu-cmd-lang = "0.96.1"
+nu-engine = "0.96.1"
+nu-parser = "0.96.1"
