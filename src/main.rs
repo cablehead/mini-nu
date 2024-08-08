@@ -5,6 +5,7 @@ use nu_engine::eval_block_with_early_return;
 use nu_protocol::debugger::WithoutDebug;
 use nu_protocol::engine::{Stack, StateWorkingSet};
 use nu_protocol::{PipelineData, Span, Value};
+use std::io::{self, BufRead};
 use std::thread;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -17,49 +18,53 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let code_snippet = std::env::args().nth(1).expect("No code snippet provided");
 
-    let threads: Vec<_> = (0..2)
-        .map(|i| {
-            let mut engine_state = engine_state.clone();
-            let snippet = code_snippet.clone();
+    let mut threads = vec![];
 
-            thread::spawn(move || {
-                // let mut engine_state = engine_state.clone();
-                let mut working_set = StateWorkingSet::new(&engine_state);
-                let block = nu_parser::parse(&mut working_set, None, snippet.as_bytes(), false);
+    for (i, line) in io::stdin().lock().lines().enumerate() {
+        let line = line?;
+        let mut engine_state = engine_state.clone();
+        let snippet = code_snippet.clone();
 
-                engine_state.merge_delta(working_set.render()).unwrap();
+        let thread = thread::spawn(move || {
+            let mut working_set = StateWorkingSet::new(&engine_state);
+            let block = nu_parser::parse(&mut working_set, None, snippet.as_bytes(), false);
 
-                let mut stack = Stack::new();
+            engine_state.merge_delta(working_set.render()).unwrap();
 
-                println!("Thread {} starting execution", i);
+            let mut stack = Stack::new();
 
-                match eval_block_with_early_return::<WithoutDebug>(
-                    &engine_state,
-                    &mut stack,
-                    &block,
-                    PipelineData::empty(),
-                ) {
-                    Ok(pipeline_data) => match pipeline_data.into_value(Span::test_data()) {
-                        Ok(value) => match value {
-                            Value::String { val, .. } => println!("Thread {}: {}", i, val),
-                            Value::List { vals, .. } => {
-                                for val in vals {
-                                    println!("Thread {}: {:?}", i, val);
-                                }
+            println!("Thread {} starting execution", i);
+
+            let input_data = PipelineData::Value(Value::string(line, Span::unknown()), None);
+
+            match eval_block_with_early_return::<WithoutDebug>(
+                &engine_state,
+                &mut stack,
+                &block,
+                input_data,
+            ) {
+                Ok(pipeline_data) => match pipeline_data.into_value(Span::test_data()) {
+                    Ok(value) => match value {
+                        Value::String { val, .. } => println!("Thread {}: {}", i, val),
+                        Value::List { vals, .. } => {
+                            for val in vals {
+                                println!("Thread {}: {:?}", i, val);
                             }
-                            other => println!("Thread {}: {:?}", i, other),
-                        },
-                        Err(err) => {
-                            eprintln!("Thread {}: Error converting pipeline data: {:?}", i, err)
                         }
+                        other => println!("Thread {}: {:?}", i, other),
                     },
-                    Err(error) => {
-                        eprintln!("Thread {}: Error: {:?}", i, error);
+                    Err(err) => {
+                        eprintln!("Thread {}: Error converting pipeline data: {:?}", i, err)
                     }
+                },
+                Err(error) => {
+                    eprintln!("Thread {}: Error: {:?}", i, error);
                 }
-            })
-        })
-        .collect();
+            }
+        });
+
+        threads.push(thread);
+    }
 
     for thread in threads {
         thread.join().unwrap();
