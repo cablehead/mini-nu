@@ -8,24 +8,22 @@ use nu_protocol::{PipelineData, Span, Value};
 use std::thread;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let mut base_engine_state = create_default_context();
-    base_engine_state = add_shell_command_context(base_engine_state);
-    base_engine_state = add_cli_context(base_engine_state);
+    let mut engine_state = create_default_context();
+    engine_state = add_shell_command_context(engine_state);
+    engine_state = add_cli_context(engine_state);
 
     let init_cwd = std::env::current_dir()?;
-    gather_parent_env_vars(&mut base_engine_state, init_cwd.as_ref());
+    gather_parent_env_vars(&mut engine_state, init_cwd.as_ref());
 
     let code_snippet = std::env::args().nth(1).expect("No code snippet provided");
 
-    // let base_engine_state = Arc::new(base_engine_state);
-
     let threads: Vec<_> = (0..2)
         .map(|i| {
-            let engine_state = base_engine_state.clone();
+            let mut engine_state = engine_state.clone();
             let snippet = code_snippet.clone();
 
             thread::spawn(move || {
-                let mut engine_state = engine_state.clone();
+                // let mut engine_state = engine_state.clone();
                 let mut working_set = StateWorkingSet::new(&engine_state);
                 let block = nu_parser::parse(&mut working_set, None, snippet.as_bytes(), false);
 
