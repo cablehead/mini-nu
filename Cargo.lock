@@ -689,6 +689,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "ctrlc"
+version = "3.4.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "672465ae37dc1bc6380a6547a8883d5dd397b0f1faaad4f265726cc7042a5345"
+dependencies = [
+ "nix",
+ "windows-sys 0.52.0",
+]
+
+[[package]]
 name = "deranged"
 version = "0.3.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1418,6 +1428,7 @@ dependencies = [
 name = "mini-nu"
 version = "0.1.0"
 dependencies = [
+ "ctrlc",
  "nu-cli",
  "nu-cmd-lang",
  "nu-command",
