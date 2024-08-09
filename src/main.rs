@@ -1,4 +1,5 @@
 use ctrlc;
+use crossbeam_channel;
 use nu_cli::{add_cli_context, gather_parent_env_vars};
 use nu_cmd_lang::create_default_context;
 use nu_command::add_shell_command_context;
@@ -8,13 +9,69 @@ use nu_protocol::debugger::WithoutDebug;
 use nu_protocol::engine::{Closure, EngineState, Stack, StateWorkingSet};
 use nu_protocol::{PipelineData, ShellError, Span, Value};
 use std::io::{self, BufRead};
-use std::sync::mpsc::channel;
+use std::sync::{Arc, Mutex, Condvar};
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::mpsc;
 use std::thread;
 
 enum Event {
     LineRead(String),
     Interrupt,
     EOF,
+}
+
+struct ThreadPool {
+    job_sender: crossbeam_channel::Sender<Box<dyn FnOnce() + Send + 'static>>,
+    active_count: Arc<AtomicUsize>,
+    completion_pair: Arc<(Mutex<()>, Condvar)>,
+}
+
+impl ThreadPool {
+    fn new(size: usize) -> Self {
+        let (job_sender, job_receiver) = crossbeam_channel::bounded::<Box<dyn FnOnce() + Send + 'static>>(0);
+        let active_count = Arc::new(AtomicUsize::new(0));
+        let completion_pair = Arc::new((Mutex::new(()), Condvar::new()));
+
+        for _ in 0..size {
+            let job_receiver = job_receiver.clone();
+            let active_count = Arc::clone(&active_count);
+            let completion_pair = Arc::clone(&completion_pair);
+
+            thread::spawn(move || {
+                while let Ok(job) = job_receiver.recv() {
+                    active_count.fetch_add(1, Ordering::SeqCst);
+                    job();
+                    if active_count.fetch_sub(1, Ordering::SeqCst) == 1 {
+                        let (lock, cvar) = &*completion_pair;
+                        let guard = lock.lock().unwrap();
+                        cvar.notify_all();
+                        drop(guard);
+                    }
+                }
+            });
+        }
+
+        ThreadPool {
+            job_sender,
+            active_count,
+            completion_pair,
+        }
+    }
+
+    fn execute<F>(&self, f: F)
+    where
+        F: FnOnce() + Send + 'static,
+    {
+        self.job_sender.send(Box::new(f)).unwrap();
+    }
+
+    fn wait_for_completion(&self) {
+        let (lock, cvar) = &*self.completion_pair;
+        let mut guard = lock.lock().unwrap();
+        while self.active_count.load(Ordering::SeqCst) > 0 {
+            guard = cvar.wait(guard).unwrap();
+        }
+    }
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -32,7 +89,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         eval_block::<WithoutDebug>(&engine_state, &mut stack, &block, PipelineData::empty())?;
     let closure: Closure = result.into_value(Span::unknown())?.into_closure()?;
 
-    let (tx, rx) = channel();
+    let (tx, rx) = mpsc::channel();
+    let pool = Arc::new(ThreadPool::new(10));
 
     // Spawn thread to read from stdin
     let stdin_tx = tx.clone();
@@ -62,7 +120,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             Event::LineRead(line) => {
                 let engine_state = engine_state.clone();
                 let closure = closure.clone();
-                thread::spawn(move || {
+                let pool = Arc::clone(&pool);
+                pool.execute(move || {
                     let mut stack = Stack::new();
                     println!("Thread {} starting execution", i);
                     let input = PipelineData::Value(Value::string(line, Span::unknown()), None);
@@ -98,6 +157,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
     }
+
+    println!("Waiting for all tasks to complete...");
+    pool.wait_for_completion();
+    println!("All tasks completed. Exiting.");
 
     Ok(())
 }

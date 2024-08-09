@@ -1428,6 +1428,7 @@ dependencies = [
 name = "mini-nu"
 version = "0.1.0"
 dependencies = [
+ "crossbeam-channel",
  "ctrlc",
  "nu-cli",
  "nu-cmd-lang",
