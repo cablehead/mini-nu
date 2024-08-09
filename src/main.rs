@@ -8,7 +8,7 @@ use nu_protocol::debugger::WithoutDebug;
 use nu_protocol::engine::{Closure, EngineState, Stack, StateWorkingSet};
 use nu_protocol::{PipelineData, ShellError, Span, Value};
 use std::io::{self, BufRead};
-use std::sync::mpsc::{channel};
+use std::sync::mpsc::channel;
 use std::thread;
 
 enum Event {
