@@ -1,5 +1,9 @@
-use ctrlc;
-use crossbeam_channel;
+use std::io::{self, BufRead};
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::mpsc;
+use std::sync::{Arc, Condvar, Mutex};
+use std::thread;
+
 use nu_cli::{add_cli_context, gather_parent_env_vars};
 use nu_cmd_lang::create_default_context;
 use nu_command::add_shell_command_context;
@@ -8,37 +12,37 @@ use nu_parser::parse;
 use nu_protocol::debugger::WithoutDebug;
 use nu_protocol::engine::{Closure, EngineState, Stack, StateWorkingSet};
 use nu_protocol::{PipelineData, ShellError, Span, Value};
-use std::io::{self, BufRead};
-use std::sync::{Arc, Mutex, Condvar};
-use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::mpsc;
-use std::thread;
+
+use ctrlc;
+
+use crossbeam_channel;
 
 enum Event {
-    LineRead(String),
+    Line(String),
     Interrupt,
     EOF,
 }
 
 struct ThreadPool {
-    job_sender: crossbeam_channel::Sender<Box<dyn FnOnce() + Send + 'static>>,
+    tx: crossbeam_channel::Sender<Box<dyn FnOnce() + Send + 'static>>,
     active_count: Arc<AtomicUsize>,
     completion_pair: Arc<(Mutex<()>, Condvar)>,
 }
 
 impl ThreadPool {
     fn new(size: usize) -> Self {
-        let (job_sender, job_receiver) = crossbeam_channel::bounded::<Box<dyn FnOnce() + Send + 'static>>(0);
+        let (tx, rx) =
+            crossbeam_channel::bounded::<Box<dyn FnOnce() + Send + 'static>>(0);
         let active_count = Arc::new(AtomicUsize::new(0));
         let completion_pair = Arc::new((Mutex::new(()), Condvar::new()));
 
         for _ in 0..size {
-            let job_receiver = job_receiver.clone();
-            let active_count = Arc::clone(&active_count);
-            let completion_pair = Arc::clone(&completion_pair);
+            let rx = rx.clone();
+            let active_count = active_count.clone();
+            let completion_pair = completion_pair.clone();
 
             thread::spawn(move || {
-                while let Ok(job) = job_receiver.recv() {
+                while let Ok(job) = rx.recv() {
                     active_count.fetch_add(1, Ordering::SeqCst);
                     job();
                     if active_count.fetch_sub(1, Ordering::SeqCst) == 1 {
@@ -52,7 +56,7 @@ impl ThreadPool {
         }
 
         ThreadPool {
-            job_sender,
+            tx,
             active_count,
             completion_pair,
         }
@@ -62,7 +66,7 @@ impl ThreadPool {
     where
         F: FnOnce() + Send + 'static,
     {
-        self.job_sender.send(Box::new(f)).unwrap();
+        self.tx.send(Box::new(f)).unwrap();
     }
 
     fn wait_for_completion(&self) {
@@ -98,7 +102,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         for line in io::stdin().lock().lines() {
             match line {
                 Ok(line) => {
-                    if stdin_tx.send(Event::LineRead(line)).is_err() {
+                    if stdin_tx.send(Event::Line(line)).is_err() {
                         break;
                     }
                 }
@@ -117,10 +121,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut i = 0;
     loop {
         match rx.recv()? {
-            Event::LineRead(line) => {
+            Event::Line(line) => {
                 let engine_state = engine_state.clone();
                 let closure = closure.clone();
-                let pool = Arc::clone(&pool);
+                let pool = pool.clone();
                 pool.execute(move || {
                     let mut stack = Stack::new();
                     println!("Thread {} starting execution", i);
