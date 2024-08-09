@@ -1,11 +1,11 @@
 use nu_cli::{add_cli_context, gather_parent_env_vars};
 use nu_cmd_lang::create_default_context;
 use nu_command::add_shell_command_context;
-use nu_engine::eval_block;
+use nu_engine::{eval_block, get_eval_block_with_early_return};
 use nu_parser::parse;
 use nu_protocol::debugger::WithoutDebug;
 use nu_protocol::engine::{Closure, EngineState, Stack, StateWorkingSet};
-use nu_protocol::{PipelineData, Span, Value};
+use nu_protocol::{PipelineData, ShellError, Span, Value};
 use std::io::{self, BufRead};
 use std::thread;
 
@@ -78,6 +78,27 @@ fn eval_closure(
     stack: &mut Stack,
     closure: &Closure,
     input: PipelineData,
-) -> Result<PipelineData, nu_protocol::ShellError> {
-    closure.run(engine_state, stack, input)
+) -> Result<PipelineData, ShellError> {
+    let block = &engine_state.get_block(closure.block_id);
+
+    // Set up the positional arguments
+    // Note: We're not passing any positional arguments in this case,
+    // but we'll leave this code here for future extensibility
+    for (_, var_id) in block.signature.required_positional.iter().enumerate() {
+        if let Some(var_id) = var_id.var_id {
+            // In this case, we're not passing any positional arguments,
+            // so we'll just add an empty string as a placeholder
+            stack.add_var(var_id, Value::string("", Span::unknown()));
+        } else {
+            return Err(ShellError::NushellFailedSpanned {
+                msg: "Error while evaluating closure".into(),
+                label: "closure argument missing var_id".into(),
+                span: Span::unknown(),
+            });
+        }
+    }
+
+    let eval_block_with_early_return = get_eval_block_with_early_return(engine_state);
+
+    eval_block_with_early_return(engine_state, stack, block, input)
 }
