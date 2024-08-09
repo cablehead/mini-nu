@@ -171,39 +171,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     loop {
         match rx.recv()? {
             Event::Line(line) => {
-                let engine_state = engine_state.clone();
-                let closure = closure.clone();
-                let pool = pool.clone();
-                let job_number = i;
-                pool.execute(move || {
-                    let mut stack = Stack::new();
-                    println!("Thread {} starting execution", job_number);
-                    let input = PipelineData::Value(Value::string(line, Span::unknown()), None);
-                    match eval_closure(&engine_state, &mut stack, &closure, input, job_number) {
-                        Ok(pipeline_data) => match pipeline_data.into_value(Span::unknown()) {
-                            Ok(value) => match value {
-                                Value::String { val, .. } => {
-                                    println!("Thread {}: {}", job_number, val)
-                                }
-                                Value::List { vals, .. } => {
-                                    for val in vals {
-                                        println!("Thread {}: {:?}", job_number, val);
-                                    }
-                                }
-                                other => println!("Thread {}: {:?}", job_number, other),
-                            },
-                            Err(err) => {
-                                eprintln!(
-                                    "Thread {}: Error converting pipeline data: {:?}",
-                                    job_number, err
-                                )
-                            }
-                        },
-                        Err(error) => {
-                            eprintln!("Thread {}: Error: {:?}", job_number, error);
-                        }
-                    }
-                });
+                handle_line(i, line, &engine_state, &closure, &pool);
                 i += 1;
             }
             Event::Interrupt => {
@@ -222,6 +190,44 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("All tasks completed. Exiting.");
 
     Ok(())
+}
+
+fn handle_line(
+    job_number: usize,
+    line: String,
+    engine_state: &EngineState,
+    closure: &Closure,
+    pool: &Arc<ThreadPool>,
+) {
+    let engine_state = engine_state.clone();
+    let closure = closure.clone();
+    pool.execute(move || {
+        let mut stack = Stack::new();
+        println!("Thread {} starting execution", job_number);
+        let input = PipelineData::Value(Value::string(line, Span::unknown()), None);
+        match eval_closure(&engine_state, &mut stack, &closure, input, job_number) {
+            Ok(pipeline_data) => match pipeline_data.into_value(Span::unknown()) {
+                Ok(value) => match value {
+                    Value::String { val, .. } => println!("Thread {}: {}", job_number, val),
+                    Value::List { vals, .. } => {
+                        for val in vals {
+                            println!("Thread {}: {:?}", job_number, val);
+                        }
+                    }
+                    other => println!("Thread {}: {:?}", job_number, other),
+                },
+                Err(err) => {
+                    eprintln!(
+                        "Thread {}: Error converting pipeline data: {:?}",
+                        job_number, err
+                    )
+                }
+            },
+            Err(error) => {
+                eprintln!("Thread {}: Error: {:?}", job_number, error);
+            }
+        }
+    });
 }
 
 fn eval_closure(
