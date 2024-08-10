@@ -1,7 +1,6 @@
 use std::io::{self, BufRead};
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::mpsc;
-use std::sync::{Arc, Condvar, Mutex};
+use std::sync::Arc;
 use std::thread;
 
 use nu_cli::{add_cli_context, gather_parent_env_vars};
@@ -15,68 +14,12 @@ use nu_protocol::{Category, PipelineData, ShellError, Signature, Span, Type, Val
 use nu_engine::{eval_block, get_eval_block_with_early_return};
 use nu_protocol::engine::{Command, EngineState, Stack, StateWorkingSet};
 
-use ctrlc;
-
-use crossbeam_channel;
+mod thread_pool;
 
 enum Event {
     Line(String),
     Interrupt,
-    EOF,
-}
-
-struct ThreadPool {
-    tx: crossbeam_channel::Sender<Box<dyn FnOnce() + Send + 'static>>,
-    active_count: Arc<AtomicUsize>,
-    completion_pair: Arc<(Mutex<()>, Condvar)>,
-}
-
-impl ThreadPool {
-    fn new(size: usize) -> Self {
-        let (tx, rx) = crossbeam_channel::bounded::<Box<dyn FnOnce() + Send + 'static>>(0);
-        let active_count = Arc::new(AtomicUsize::new(0));
-        let completion_pair = Arc::new((Mutex::new(()), Condvar::new()));
-
-        for _ in 0..size {
-            let rx = rx.clone();
-            let active_count = active_count.clone();
-            let completion_pair = completion_pair.clone();
-
-            thread::spawn(move || {
-                while let Ok(job) = rx.recv() {
-                    active_count.fetch_add(1, Ordering::SeqCst);
-                    job();
-                    if active_count.fetch_sub(1, Ordering::SeqCst) == 1 {
-                        let (lock, cvar) = &*completion_pair;
-                        let guard = lock.lock().unwrap();
-                        cvar.notify_all();
-                        drop(guard);
-                    }
-                }
-            });
-        }
-
-        ThreadPool {
-            tx,
-            active_count,
-            completion_pair,
-        }
-    }
-
-    fn execute<F>(&self, f: F)
-    where
-        F: FnOnce() + Send + 'static,
-    {
-        self.tx.send(Box::new(f)).unwrap();
-    }
-
-    fn wait_for_completion(&self) {
-        let (lock, cvar) = &*self.completion_pair;
-        let mut guard = lock.lock().unwrap();
-        while self.active_count.load(Ordering::SeqCst) > 0 {
-            guard = cvar.wait(guard).unwrap();
-        }
-    }
+    Eof,
 }
 
 #[derive(Clone)]
@@ -143,7 +86,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let closure: Closure = result.into_value(Span::unknown())?.into_closure()?;
 
     let (tx, rx) = mpsc::channel();
-    let pool = Arc::new(ThreadPool::new(10));
+    let pool = Arc::new(thread_pool::ThreadPool::new(10));
 
     // Spawn thread to read from stdin
     let stdin_tx = tx.clone();
@@ -158,7 +101,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 Err(_) => break,
             }
         }
-        let _ = stdin_tx.send(Event::EOF);
+        let _ = stdin_tx.send(Event::Eof);
     });
 
     // Set up ctrl-c handler
@@ -178,7 +121,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 println!("Received interrupt signal. Shutting down...");
                 break;
             }
-            Event::EOF => {
+            Event::Eof => {
                 println!("Reached end of input. Shutting down...");
                 break;
             }
@@ -197,7 +140,7 @@ fn handle_line(
     line: String,
     engine_state: &EngineState,
     closure: &Closure,
-    pool: &Arc<ThreadPool>,
+    pool: &Arc<thread_pool::ThreadPool>,
 ) {
     let engine_state = engine_state.clone();
     let closure = closure.clone();
