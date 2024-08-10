@@ -1,17 +1,11 @@
 use std::io::{self, BufRead};
 use std::sync::mpsc;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::thread;
 
 mod engine;
 mod run;
 mod thread_pool;
-
-enum Event {
-    Line(String),
-    Interrupt,
-    Eof,
-}
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut engine_state = engine::create()?;
@@ -28,38 +22,30 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         for line in io::stdin().lock().lines() {
             match line {
                 Ok(line) => {
-                    if stdin_tx.send(Event::Line(line)).is_err() {
+                    if stdin_tx.send(line).is_err() {
                         break;
                     }
                 }
                 Err(_) => break,
             }
         }
-        let _ = stdin_tx.send(Event::Eof);
+        // Channel will be closed when stdin_tx is dropped at the end of this function
     });
 
     // Set up ctrl-c handler
-    let ctrlc_tx = tx.clone();
+    let ctrlc_tx = Arc::new(Mutex::new(Some(tx)));
+    let ctrlc_tx_clone = Arc::clone(&ctrlc_tx);
     ctrlc::set_handler(move || {
-        let _ = ctrlc_tx.send(Event::Interrupt);
+        println!("Received interrupt signal. Shutting down...");
+        if let Some(tx) = ctrlc_tx_clone.lock().unwrap().take() {
+            drop(tx); // This will close the channel
+        }
     })?;
 
     let mut i = 0;
-    loop {
-        match rx.recv()? {
-            Event::Line(line) => {
-                run::line(i, line, &engine_state, &closure, &pool);
-                i += 1;
-            }
-            Event::Interrupt => {
-                println!("Received interrupt signal. Shutting down...");
-                break;
-            }
-            Event::Eof => {
-                println!("Reached end of input. Shutting down...");
-                break;
-            }
-        }
+    while let Ok(line) = rx.recv() {
+        run::line(i, line, &engine_state, &closure, &pool);
+        i += 1;
     }
 
     println!("Waiting for all tasks to complete...");
