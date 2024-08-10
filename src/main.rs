@@ -76,10 +76,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let init_cwd = std::env::current_dir()?;
     gather_parent_env_vars(&mut engine_state, init_cwd.as_ref());
+
     let closure_snippet = std::env::args().nth(1).expect("No closure provided");
     let mut working_set = StateWorkingSet::new(&engine_state);
     let block = parse(&mut working_set, None, closure_snippet.as_bytes(), false);
     engine_state.merge_delta(working_set.render())?;
+
     let mut stack = Stack::new();
     let result =
         eval_block::<WithoutDebug>(&engine_state, &mut stack, &block, PipelineData::empty())?;
