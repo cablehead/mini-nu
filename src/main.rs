@@ -16,28 +16,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let (tx, rx) = mpsc::channel();
     let pool = Arc::new(thread_pool::ThreadPool::new(10));
 
-    let shared_tx = Arc::new(Mutex::new(Some(tx)));
+    let tx = Arc::new(Mutex::new(Some(tx)));
 
-    // Spawn thread to read from stdin
-    let stdin_tx = shared_tx.clone();
-    thread::spawn(move || {
-        for line in io::stdin().lock().lines() {
-            match line {
-                Ok(line) => {
-                    let send_result = stdin_tx.lock().unwrap().as_ref().map(|tx| tx.send(line));
-                    if let Some(Err(_)) = send_result {
-                        break;
-                    }
-                }
-                Err(_) => break,
-            }
-        }
-        // Close the channel by taking and dropping the sender
-        stdin_tx.lock().unwrap().take();
-    });
+    spawn_stdin_reader(tx.clone());
 
-    // Set up ctrl-c handler
-    let ctrlc_tx = shared_tx.clone();
+    let ctrlc_tx = tx.clone();
     ctrlc::set_handler(move || {
         println!("Received interrupt signal. Shutting down...");
         // Close the channel by taking and dropping the sender
@@ -55,4 +38,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("All tasks completed. Exiting.");
 
     Ok(())
+}
+
+fn spawn_stdin_reader(tx: Arc<Mutex<Option<mpsc::Sender<String>>>>) {
+    thread::spawn(move || {
+        for line in io::stdin().lock().lines() {
+            if !line
+                .ok()
+                .and_then(|line| tx.lock().unwrap().as_ref().map(|tx| tx.send(line).is_ok()))
+                .unwrap_or(false)
+            {
+                break;
+            }
+        }
+        // Close the channel by taking and dropping the sender
+        tx.lock().unwrap().take();
+    });
 }
