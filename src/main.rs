@@ -19,7 +19,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let shared_tx = Arc::new(Mutex::new(Some(tx)));
 
     // Spawn thread to read from stdin
-    let stdin_tx = Arc::clone(&shared_tx);
+    let stdin_tx = shared_tx.clone();
     thread::spawn(move || {
         for line in io::stdin().lock().lines() {
             match line {
@@ -37,7 +37,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     });
 
     // Set up ctrl-c handler
-    let ctrlc_tx = Arc::clone(&shared_tx);
+    let ctrlc_tx = shared_tx.clone();
     ctrlc::set_handler(move || {
         println!("Received interrupt signal. Shutting down...");
         // Close the channel by taking and dropping the sender
