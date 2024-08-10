@@ -16,30 +16,32 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let (tx, rx) = mpsc::channel();
     let pool = Arc::new(thread_pool::ThreadPool::new(10));
 
+    let shared_tx = Arc::new(Mutex::new(Some(tx)));
+
     // Spawn thread to read from stdin
-    let stdin_tx = tx.clone();
+    let stdin_tx = Arc::clone(&shared_tx);
     thread::spawn(move || {
         for line in io::stdin().lock().lines() {
             match line {
                 Ok(line) => {
-                    if stdin_tx.send(line).is_err() {
+                    let send_result = stdin_tx.lock().unwrap().as_ref().map(|tx| tx.send(line));
+                    if let Some(Err(_)) = send_result {
                         break;
                     }
                 }
                 Err(_) => break,
             }
         }
-        // Channel will be closed when stdin_tx is dropped at the end of this function
+        // Close the channel by taking and dropping the sender
+        stdin_tx.lock().unwrap().take();
     });
 
     // Set up ctrl-c handler
-    let ctrlc_tx = Arc::new(Mutex::new(Some(tx)));
-    let ctrlc_tx_clone = Arc::clone(&ctrlc_tx);
+    let ctrlc_tx = Arc::clone(&shared_tx);
     ctrlc::set_handler(move || {
         println!("Received interrupt signal. Shutting down...");
-        if let Some(tx) = ctrlc_tx_clone.lock().unwrap().take() {
-            drop(tx); // This will close the channel
-        }
+        // Close the channel by taking and dropping the sender
+        ctrlc_tx.lock().unwrap().take();
     })?;
 
     let mut i = 0;
