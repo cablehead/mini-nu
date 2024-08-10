@@ -68,7 +68,7 @@ fn add_custom_commands(mut engine_state: EngineState) -> EngineState {
     engine_state
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn create_base_engine_state() -> Result<EngineState, Box<dyn std::error::Error>> {
     let mut engine_state = create_default_context();
     engine_state = add_shell_command_context(engine_state);
     engine_state = add_cli_context(engine_state);
@@ -77,15 +77,28 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let init_cwd = std::env::current_dir()?;
     gather_parent_env_vars(&mut engine_state, init_cwd.as_ref());
 
-    let closure_snippet = std::env::args().nth(1).expect("No closure provided");
-    let mut working_set = StateWorkingSet::new(&engine_state);
+    Ok(engine_state)
+}
+
+fn parse_closure(
+    engine_state: &mut EngineState,
+    closure_snippet: &str,
+) -> Result<Closure, ShellError> {
+    let mut working_set = StateWorkingSet::new(engine_state);
     let block = parse(&mut working_set, None, closure_snippet.as_bytes(), false);
     engine_state.merge_delta(working_set.render())?;
 
     let mut stack = Stack::new();
     let result =
-        eval_block::<WithoutDebug>(&engine_state, &mut stack, &block, PipelineData::empty())?;
-    let closure: Closure = result.into_value(Span::unknown())?.into_closure()?;
+        eval_block::<WithoutDebug>(engine_state, &mut stack, &block, PipelineData::empty())?;
+    result.into_value(Span::unknown())?.into_closure()
+}
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let mut engine_state = create_base_engine_state()?;
+
+    let closure_snippet = std::env::args().nth(1).expect("No closure provided");
+    let closure = parse_closure(&mut engine_state, &closure_snippet)?;
 
     let (tx, rx) = mpsc::channel();
     let pool = Arc::new(thread_pool::ThreadPool::new(10));
