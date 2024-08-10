@@ -8,14 +8,7 @@ mod run;
 mod thread_pool;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let mut engine_state = engine::create()?;
-
-    let closure_snippet = std::env::args().nth(1).expect("No closure provided");
-    let closure = engine::parse_closure(&mut engine_state, &closure_snippet)?;
-
     let (tx, rx) = mpsc::channel();
-    let pool = Arc::new(thread_pool::ThreadPool::new(10));
-
     let tx = Arc::new(Mutex::new(Some(tx)));
 
     spawn_stdin_reader(tx.clone());
@@ -26,6 +19,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         // Close the channel by taking and dropping the sender
         ctrlc_tx.lock().unwrap().take();
     })?;
+
+    let mut engine_state = engine::create()?;
+
+    let closure_snippet = std::env::args().nth(1).expect("No closure provided");
+    let closure = engine::parse_closure(&mut engine_state, &closure_snippet)?;
+
+    let pool = Arc::new(thread_pool::ThreadPool::new(10));
 
     let mut i = 0;
     while let Ok(line) = rx.recv() {
