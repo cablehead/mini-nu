@@ -189,8 +189,7 @@ fn eval_closure(
             label: format!(
                 "Found {} arguments, expected 1",
                 block.signature.required_positional.len()
-            )
-            .into(),
+            ),
             span: Span::unknown(),
         });
     }
