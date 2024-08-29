@@ -9,5 +9,5 @@ FOO
 
 See also:
 
-- https://github.com/sophiajt/nu_app
-- https://github.com/cablehead/mini-nu/tree/threaded
+- An early example from @sophiajt herself :: https://github.com/sophiajt/nu_app
+- A threaded version of this example :: https://github.com/cablehead/mini-nu/tree/threaded
