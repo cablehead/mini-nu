@@ -6,3 +6,8 @@ The minimum amount of nu to run some nu
      Running `target/debug/mini-nu '"foo" | str upcase'`
 FOO
 ```
+
+See also:
+
+- https://github.com/sophiajt/nu_app
+- https://github.com/cablehead/mini-nu/tree/threaded
