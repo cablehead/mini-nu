@@ -3,6 +3,8 @@ runs Nushell's engine standalone, reusing it across threads. For each line of
 input, it spawns a new thread to execute the user-provided closure, passing an
 incrementing count as an argument.
 
+https://github.com/user-attachments/assets/b4de1d3c-88fb-4c66-a620-bac45c0359fb
+
 ```
 % cargo r '{|arg| let s = $in ; sleep 5sec; $"($in | str upcase) :: ($arg)"}'
     Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.57s
