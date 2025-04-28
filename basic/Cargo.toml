@@ -10,3 +10,7 @@ nu-protocol = { workspace = true }
 nu-cmd-lang = { workspace = true }
 nu-engine = { workspace = true }
 nu-parser = { workspace = true }
+
+[dev-dependencies]
+assert_cmd = { workspace = true }
+predicates = { workspace = true }

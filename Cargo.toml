@@ -11,3 +11,7 @@ nu-protocol = "0.103"
 nu-cmd-lang = "0.103"
 nu-engine = "0.103"
 nu-parser = "0.103"
+
+# Testing dependencies shared across packages
+assert_cmd = "2.0"
+predicates = "3.0"
