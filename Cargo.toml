@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "basic",
+    "threaded",
 ]
 resolver = "2"
 

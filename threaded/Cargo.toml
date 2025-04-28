@@ -1,0 +1,18 @@
+[package]
+name = "threaded"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+nu-cli = { workspace = true }
+nu-command = { workspace = true }
+nu-protocol = { workspace = true }
+nu-cmd-lang = { workspace = true }
+nu-engine = { workspace = true }
+nu-parser = { workspace = true }
+ctrlc = "3.4.4"
+crossbeam-channel = "0.5.13"
+
+[dev-dependencies]
+assert_cmd = { workspace = true }
+predicates = { workspace = true }
