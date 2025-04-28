@@ -1,0 +1,12 @@
+[package]
+name = "basic"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+nu-cli = { workspace = true }
+nu-command = { workspace = true }
+nu-protocol = { workspace = true }
+nu-cmd-lang = { workspace = true }
+nu-engine = { workspace = true }
+nu-parser = { workspace = true }

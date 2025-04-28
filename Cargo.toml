@@ -1,9 +1,10 @@
-[package]
-name = "mini-nu"
-version = "0.1.0"
-edition = "2021"
+[workspace]
+members = [
+    "basic",
+]
+resolver = "2"
 
-[dependencies]
+[workspace.dependencies]
 nu-cli = "0.103"
 nu-command = "0.103"
 nu-protocol = "0.103"

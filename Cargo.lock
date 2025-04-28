@@ -212,6 +212,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "72b3254f16251a8381aa12e40e3c4d2f0199f8c6508fbecb9d91f575e0fbb8c6"
 
 [[package]]
+name = "basic"
+version = "0.1.0"
+dependencies = [
+ "nu-cli",
+ "nu-cmd-lang",
+ "nu-command",
+ "nu-engine",
+ "nu-parser",
+ "nu-protocol",
+]
+
+[[package]]
 name = "bindgen"
 version = "0.69.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1600,18 +1612,6 @@ checksum = "f7c44f8e672c00fe5308fa235f821cb4198414e1c77935c1ab6948d3fd78550e"
 dependencies = [
  "mime",
  "unicase",
-]
-
-[[package]]
-name = "mini-nu"
-version = "0.1.0"
-dependencies = [
- "nu-cli",
- "nu-cmd-lang",
- "nu-command",
- "nu-engine",
- "nu-parser",
- "nu-protocol",
 ]
 
 [[package]]
