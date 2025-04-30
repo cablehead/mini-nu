@@ -60,4 +60,4 @@ cargo test -p threaded
 
 ## Acknowledgements
 
-- An early example from @sophiajt herself: https://github.com/sophiajt/nu_app
+- An early example from [@sophiajt](https://github.com/sophiajt) herself: https://github.com/sophiajt/nu_app
