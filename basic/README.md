@@ -1,79 +1,260 @@
 # Basic Nushell Embedding Example
 
-This package demonstrates the minimal code needed to embed Nushell in a Rust application, execute commands, and handle results.
+This example demonstrates the core components needed to embed Nushell in a Rust application for single-execution workflows.
 
-## Overview
+## Core Nushell Structs and Functions
 
-The basic example shows how to:
-- Initialize a Nushell `EngineState` with default commands
-- Parse Nushell code into an executable block
-- Evaluate the block and process results
-- Handle different Nushell value types in your Rust code
+### 1. `EngineState` (`./crates/nu-protocol/src/engine/engine_state.rs`)
 
-## Usage
+The central structure that holds all global state:
 
-Run the example with a Nushell command as an argument:
+```rust
+pub struct EngineState {
+    files: Vec<CachedFile>,
+    pub(super) virtual_paths: Vec<(String, VirtualPath)>,
+    vars: Vec<Variable>,
+    decls: Arc<Vec<Box<dyn Command + 'static>>>,
+    pub(super) blocks: Arc<Vec<Arc<Block>>>,
+    pub(super) modules: Arc<Vec<Arc<Module>>>,
+    pub spans: Vec<Span>,
+    doccomments: Doccomments,
+    pub scope: ScopeFrame,
+    signals: Signals,
+    pub signal_handlers: Option<Handlers>,
+    pub env_vars: Arc<EnvVars>,
+    pub previous_env_vars: Arc<HashMap<String, Value>>,
+    pub config: Arc<Config>,
+    pub pipeline_externals_state: Arc<(AtomicU32, AtomicU32)>,
+    pub repl_state: Arc<Mutex<ReplState>>,
+    pub table_decl_id: Option<DeclId>,
+    // ... additional fields ...
+    pub jobs: Arc<Mutex<Jobs>>,
+    pub current_job: CurrentJob,
+    // ... more fields ...
+}
+
+impl EngineState {
+    pub fn merge_delta(&mut self, delta: StateDelta) -> Result<(), ShellError>
+    // ... other methods ...
+}
+```
+
+### 2. `StateWorkingSet` (`./crates/nu-protocol/src/engine/state_working_set.rs`)
+
+A staging area for changes to be applied to the engine state:
+
+```rust
+pub struct StateWorkingSet<'a> {
+    pub permanent_state: &'a EngineState,
+    pub delta: StateDelta,
+    pub files: FileStack,
+    pub search_predecls: bool,
+    pub parse_errors: Vec<ParseError>,
+    pub parse_warnings: Vec<ParseWarning>,
+    pub compile_errors: Vec<CompileError>,
+}
+
+impl<'a> StateWorkingSet<'a> {
+    pub fn new(permanent_state: &'a EngineState) -> Self
+    pub fn render(self) -> StateDelta
+    // ... other methods ...
+}
+```
+
+### 3. `Stack` (`./crates/nu-protocol/src/engine/stack.rs`)
+
+Manages runtime variable context during execution:
+
+```rust
+pub struct Stack {
+    pub vars: Vec<(VarId, Value)>,
+    pub env_vars: Vec<Arc<EnvVars>>,
+    pub env_hidden: Arc<HashMap<String, HashSet<String>>>,
+    pub active_overlays: Vec<String>,
+    pub arguments: ArgumentStack,
+    pub error_handlers: ErrorHandlerStack,
+    pub recursion_count: u64,
+    pub parent_stack: Option<Arc<Stack>>,
+    pub parent_deletions: Vec<VarId>,
+    pub config: Option<Arc<Config>>,
+    pub(crate) out_dest: StackOutDest,
+}
+
+impl Stack {
+    pub fn new() -> Self
+    // ... other methods ...
+}
+```
+
+### 4. `PipelineData` (`./crates/nu-protocol/src/pipeline/pipeline_data.rs`)
+
+Represents data flowing through pipelines:
+
+```rust
+pub enum PipelineData {
+    Empty,
+    Value(Value, Option<PipelineMetadata>),
+    ListStream(ListStream, Option<PipelineMetadata>),
+    ByteStream(ByteStream, Option<PipelineMetadata>),
+}
+
+impl PipelineData {
+    pub fn empty() -> PipelineData
+    pub fn into_value(self, span: Span) -> Result<Value, ShellError>
+    // ... other methods ...
+}
+```
+
+### 5. `Value` (`./crates/nu-protocol/src/value/mod.rs`)
+
+Core data type for Nushell values:
+
+```rust
+pub enum Value {
+    Bool { val: bool, internal_span: Span },
+    Int { val: i64, internal_span: Span },
+    Float { val: f64, internal_span: Span },
+    String { val: String, internal_span: Span },
+    // ... many other variants ...
+    List { vals: Vec<Value>, internal_span: Span },
+    Closure { val: Box<Closure>, internal_span: Span },
+    Error { error: Box<ShellError>, internal_span: Span },
+    // ... more variants ...
+}
+```
+
+## Key Functions for Embedding
+
+### 1. `create_default_context` and `add_shell_command_context`
+
+These functions create and configure the Nushell engine:
+
+```rust
+// From ./crates/nu-cmd-lang/src/default_context.rs
+pub fn create_default_context() -> EngineState
+
+// From nu_command
+pub fn add_shell_command_context(engine_state: EngineState) -> EngineState
+```
+
+Usage:
+```rust
+// Create the base engine state with core commands
+let mut engine_state = create_default_context();
+
+// Add shell commands to interact with the OS
+engine_state = add_shell_command_context(engine_state);
+```
+
+### 2. `gather_parent_env_vars`
+
+Collects environment variables from the host process:
+
+```rust
+// From nu_cli
+pub fn gather_parent_env_vars(engine_state: &mut EngineState, cwd: &Path)
+```
+
+Usage:
+```rust
+// Get the current working directory
+let init_cwd = std::env::current_dir()?;
+
+// Adds environment variables to the engine state
+gather_parent_env_vars(&mut engine_state, init_cwd.as_ref());
+```
+
+### 3. `nu_parser::parse`
+
+Parses Nushell code into an executable block:
+
+```rust
+// From ./crates/nu-parser/src/parser.rs
+pub fn parse(
+    working_set: &mut StateWorkingSet,
+    fname: Option<&str>,
+    contents: &[u8],
+    scoped: bool,
+) -> Arc<Block>
+```
+
+Usage:
+```rust
+// Create a working set for parsing operations
+let mut working_set = StateWorkingSet::new(&engine_state);
+
+// Parse the code into an executable block
+let block = nu_parser::parse(&mut working_set, None, code_snippet.as_bytes(), false);
+
+// Merge the changes from parsing back into the engine state
+engine_state.merge_delta(working_set.render())?;
+```
+
+### 4. `eval_block_with_early_return`
+
+Evaluates a code block with proper handling of Nushell's control flow:
+
+```rust
+// From ./crates/nu-engine/src/eval.rs
+pub fn eval_block_with_early_return<D: DebugContext>(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    block: &Block,
+    input: PipelineData,
+) -> Result<PipelineData, ShellError>
+```
+
+Usage:
+```rust
+// Create a new stack for variable context
+let mut stack = Stack::new();
+
+// Evaluate the block with the engine state and stack
+match eval_block_with_early_return::<WithoutDebug>(
+    &engine_state,
+    &mut stack,
+    &block,
+    PipelineData::empty(),
+) {
+    Ok(pipeline_data) => {
+        // Handle successful execution...
+    }
+    Err(error) => {
+        // Handle error...
+    }
+}
+```
+
+## Complete Embedding Workflow
+
+The basic embedding pattern follows these steps:
+
+1. **Initialize Engine**: Create an `EngineState` with default commands and shell capabilities
+2. **Setup Environment**: Add environment variables from the host process
+3. **Parse Code**: Use `StateWorkingSet` and `parse` to convert Nushell code to an executable `Block`
+4. **Execute Code**: Create a `Stack` and use `eval_block_with_early_return` to run the code
+5. **Process Results**: Convert `PipelineData` to a Nushell `Value` and handle the output
+
+## Example Usage
 
 ```bash
+# String manipulation
 cargo run -p basic -- '"Hello from Nushell!" | str upcase'
-```
 
-Output:
-```
-HELLO FROM NUSHELL!
-```
-
-## Example Commands
-
-Here are some other commands you can try:
-
-```bash
-# Simple math
+# Math operations
 cargo run -p basic -- "10 + 20 * 3"
 
-# Working with data structures
+# Data structures and transformations
 cargo run -p basic -- "[1 2 3] | each {|x| $x * 2} | math sum"
 
-# Using Nushell's built-in commands
+# File system operations
 cargo run -p basic -- "ls | where type == file | length"
 ```
 
-## Nushell Implementation Details
-
-Key Nushell components used:
-
-1. **Engine State Creation**:
-   - Uses `create_default_context()` to set up a base engine
-   - Adds shell commands with `add_shell_command_context()`
-   - [EngineState](https://docs.rs/nu-protocol/latest/nu_protocol/engine/struct.EngineState.html)
-
-2. **Environment Setup**:
-   - Collects parent environment variables with `gather_parent_env_vars`
-   - [gather_parent_env_vars](https://docs.rs/nu-cli/latest/nu_cli/fn.gather_parent_env_vars.html)
-
-3. **Code Parsing**:
-   - Creates a `StateWorkingSet` for parsing operations
-   - Parses code into an executable block with `parse()`
-   - [parse](https://docs.rs/nu-parser/latest/nu_parser/fn.parse.html)
-
-4. **Block Evaluation**:
-   - Uses `eval_block_with_early_return` to execute Nushell code
-   - Handles early returns and error states
-   - [eval_block_with_early_return](https://docs.rs/nu-engine/latest/nu_engine/fn.eval_block_with_early_return.html)
-
-5. **Result Handling**:
-   - Processes Nushell's `PipelineData` into `Value` types
-   - Demonstrates handling different value types (String, List, etc.)
-   - [PipelineData](https://docs.rs/nu-protocol/latest/nu_protocol/enum.PipelineData.html), [Value](https://docs.rs/nu-protocol/latest/nu_protocol/enum.Value.html)
-
-This implementation demonstrates the simplest pattern for embedding Nushell, focusing on single-execution flows rather than reusing the engine across multiple evaluations.
-
 ## Testing
 
-Run the test with:
+The tests verify that the embedded Nushell engine can correctly execute commands:
 
 ```bash
 cargo test -p basic
 ```
-
-The test verifies that the example can correctly execute a Nushell string transformation command.

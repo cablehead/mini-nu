@@ -2,6 +2,7 @@
 members = [
     "basic",
     "threaded",
+    "background",
 ]
 resolver = "2"
 
