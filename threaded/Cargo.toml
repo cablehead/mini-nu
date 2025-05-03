@@ -10,9 +10,11 @@ nu-protocol = { workspace = true }
 nu-cmd-lang = { workspace = true }
 nu-engine = { workspace = true }
 nu-parser = { workspace = true }
+tokio = { version = "1.28", features = ["full"] }
 ctrlc = "3.4.4"
-crossbeam-channel = "0.5.13"
 
 [dev-dependencies]
 assert_cmd = { workspace = true }
 predicates = { workspace = true }
+nix = { version = "0.28.0", features = ["process", "signal"] }
+sysinfo = "0.35.0"

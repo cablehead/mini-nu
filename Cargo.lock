@@ -3626,8 +3626,8 @@ name = "threaded"
 version = "0.1.0"
 dependencies = [
  "assert_cmd",
- "crossbeam-channel",
  "ctrlc",
+ "nix 0.28.0",
  "nu-cli",
  "nu-cmd-lang",
  "nu-command",
@@ -3635,6 +3635,8 @@ dependencies = [
  "nu-parser",
  "nu-protocol",
  "predicates",
+ "sysinfo 0.35.0",
+ "tokio",
 ]
 
 [[package]]
