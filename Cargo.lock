@@ -213,26 +213,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0c4b4d0bd25bd0b74681c0ad21497610ce1b7c91b1022cd21c80c6fbdd9476b0"
 
 [[package]]
-name = "background"
-version = "0.1.0"
-dependencies = [
- "assert_cmd",
- "crossterm 0.27.0",
- "ctrlc",
- "nix 0.28.0",
- "nu-cli",
- "nu-cmd-lang",
- "nu-command",
- "nu-engine",
- "nu-parser",
- "nu-protocol",
- "nu-system",
- "predicates",
- "sysinfo 0.35.0",
- "tokio",
-]
-
-[[package]]
 name = "backtrace"
 version = "0.3.74"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -252,20 +232,6 @@ name = "base64"
 version = "0.22.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "72b3254f16251a8381aa12e40e3c4d2f0199f8c6508fbecb9d91f575e0fbb8c6"
-
-[[package]]
-name = "basic"
-version = "0.1.0"
-dependencies = [
- "assert_cmd",
- "nu-cli",
- "nu-cmd-lang",
- "nu-command",
- "nu-engine",
- "nu-parser",
- "nu-protocol",
- "predicates",
-]
 
 [[package]]
 name = "bindgen"
@@ -2459,6 +2425,58 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "caff54706df99d2a78a5a4e3455ff45448d81ef1bb63c22cd14052ca0e993a3f"
 
 [[package]]
+name = "p1-basic"
+version = "0.1.0"
+dependencies = [
+ "assert_cmd",
+ "nu-cli",
+ "nu-cmd-lang",
+ "nu-command",
+ "nu-engine",
+ "nu-parser",
+ "nu-protocol",
+ "predicates",
+]
+
+[[package]]
+name = "p2-background"
+version = "0.1.0"
+dependencies = [
+ "assert_cmd",
+ "crossterm 0.27.0",
+ "ctrlc",
+ "nix 0.28.0",
+ "nu-cli",
+ "nu-cmd-lang",
+ "nu-command",
+ "nu-engine",
+ "nu-parser",
+ "nu-protocol",
+ "nu-system",
+ "predicates",
+ "sysinfo 0.35.0",
+ "tokio",
+]
+
+[[package]]
+name = "p3-the-works"
+version = "0.1.0"
+dependencies = [
+ "assert_cmd",
+ "ctrlc",
+ "nix 0.28.0",
+ "nu-cli",
+ "nu-cmd-lang",
+ "nu-command",
+ "nu-engine",
+ "nu-parser",
+ "nu-protocol",
+ "predicates",
+ "sysinfo 0.35.0",
+ "tokio",
+]
+
+[[package]]
 name = "papergrid"
 version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3619,24 +3637,6 @@ checksum = "8b9ef9bad013ada3808854ceac7b46812a6465ba368859a37e2100283d2d719c"
 dependencies = [
  "cfg-if",
  "once_cell",
-]
-
-[[package]]
-name = "threaded"
-version = "0.1.0"
-dependencies = [
- "assert_cmd",
- "ctrlc",
- "nix 0.28.0",
- "nu-cli",
- "nu-cmd-lang",
- "nu-command",
- "nu-engine",
- "nu-parser",
- "nu-protocol",
- "predicates",
- "sysinfo 0.35.0",
- "tokio",
 ]
 
 [[package]]

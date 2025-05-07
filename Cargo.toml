@@ -1,8 +1,8 @@
 [workspace]
 members = [
-    "basic",
-    "threaded",
-    "background",
+    "p1-basic",
+    "p2-background",
+    "p3-the-works",
 ]
 resolver = "2"
 

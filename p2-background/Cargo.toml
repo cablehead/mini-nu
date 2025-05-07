@@ -1,7 +1,9 @@
 [package]
-name = "threaded"
+name = "p2-background"
 version = "0.1.0"
 edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 nu-cli = { workspace = true }
@@ -10,8 +12,10 @@ nu-protocol = { workspace = true }
 nu-cmd-lang = { workspace = true }
 nu-engine = { workspace = true }
 nu-parser = { workspace = true }
+nu-system = "0.104"
 tokio = { version = "1.28", features = ["full"] }
-ctrlc = "3.4.4"
+crossterm = "0.27"
+ctrlc = "3.4"
 
 [dev-dependencies]
 assert_cmd = { workspace = true }

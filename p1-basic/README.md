@@ -239,16 +239,16 @@ The basic embedding pattern follows these steps:
 
 ```bash
 # String manipulation
-cargo run -p basic -- '"Hello from Nushell!" | str upcase'
+cargo run -p p1-basic -- '"Hello from Nushell!" | str upcase'
 
 # Math operations
-cargo run -p basic -- "10 + 20 * 3"
+cargo run -p p1-basic -- "10 + 20 * 3"
 
 # Data structures and transformations
-cargo run -p basic -- "[1 2 3] | each {|x| $x * 2} | math sum"
+cargo run -p p1-basic -- "[1 2 3] | each {|x| $x * 2} | math sum"
 
 # File system operations
-cargo run -p basic -- "ls | where type == file | length"
+cargo run -p p1-basic -- "ls | where type == file | length"
 ```
 
 ## Testing
@@ -256,5 +256,5 @@ cargo run -p basic -- "ls | where type == file | length"
 The tests verify that the embedded Nushell engine can correctly execute commands:
 
 ```bash
-cargo test -p basic
+cargo test -p p1-basic
 ```
