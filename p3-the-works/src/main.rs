@@ -1,3 +1,5 @@
+/// Advanced Nushell embedding example
+/// Demonstrates custom commands, multiple background pipelines, and clean shutdown
 use std::io::{self, BufRead};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
@@ -125,6 +127,70 @@ fn eval_closure(
     eval_block_with_early_return::<WithoutDebug>(engine_state, stack, block, input)
 }
 
+/// Prints the result of Nushell execution in a human-readable format
+fn print_result(value: Value, job_number: usize) {
+    match value {
+        Value::String { val, .. } => println!("Thread {}: {}", job_number, val),
+        Value::List { vals, .. } => {
+            for val in vals {
+                println!("Thread {}: {:?}", job_number, val);
+            }
+        }
+        other => println!("Thread {}: {:?}", job_number, other),
+    }
+}
+
+/// Processes a single job with the given closure in the Nushell engine.
+/// Handles job tracking, execution and cleanup through Nushell's job system.
+fn process_job(engine_state: &EngineState, closure: &Closure, line: &str, job_number: usize) {
+    // Create a thread job for this evaluation
+    let (sender, _receiver) = std::sync::mpsc::channel();
+
+    // Get the signals from the engine state to ensure we're using the same
+    // interrupt flag that's connected to Ctrl+C handling
+    let signals = engine_state.signals().clone();
+
+    // Create the job
+    let job =
+        nu_protocol::engine::ThreadJob::new(signals, Some(format!("Job {}", job_number)), sender);
+
+    // Add the job to the engine's job table
+    let job_id = {
+        let mut jobs = engine_state.jobs.lock().unwrap();
+        jobs.add_job(nu_protocol::engine::Job::Thread(job.clone()))
+    };
+
+    // Create a clone of the engine state with this job as the current job
+    let mut local_engine_state = engine_state.clone();
+    local_engine_state.current_job.background_thread_job = Some(job);
+
+    // Process with the local engine state that has the job context
+    let mut stack = Stack::new();
+    let input = PipelineData::Value(Value::string(line, Span::unknown()), None);
+
+    // Run the closure with the local engine state to ensure external commands
+    // are registered with our job
+    let result = eval_closure(&local_engine_state, &mut stack, closure, input, job_number);
+
+    // Handle the result
+    match result {
+        Ok(pipeline_data) => match pipeline_data.into_value(Span::unknown()) {
+            Ok(value) => print_result(value, job_number),
+            Err(err) => eprintln!(
+                "Thread {}: Error converting pipeline data: {:?}",
+                job_number, err
+            ),
+        },
+        Err(error) => eprintln!("Thread {}: Error: {:?}", job_number, error),
+    }
+
+    // Remove the job from the job table when done
+    {
+        let mut jobs = engine_state.jobs.lock().unwrap();
+        jobs.remove_job(job_id);
+    }
+}
+
 /// Processes input lines from stdin and spawns Nushell tasks for each line.
 /// Handles concurrent execution of multiple tasks and proper shutdown.
 async fn process_input_lines(
@@ -183,84 +249,14 @@ async fn process_input_lines(
     }
 }
 
-/// Processes a single job with the given closure in the Nushell engine.
-/// Handles job tracking, execution and cleanup through Nushell's job system.
-fn process_job(engine_state: &EngineState, closure: &Closure, line: &str, job_number: usize) {
-    // Create a thread job for this evaluation
-    let (sender, _receiver) = std::sync::mpsc::channel();
-
-    // Get the signals from the engine state to ensure we're using the same
-    // interrupt flag that's connected to Ctrl+C handling
-    let signals = engine_state.signals().clone();
-
-    // Create the job
-    let job =
-        nu_protocol::engine::ThreadJob::new(signals, Some(format!("Job {}", job_number)), sender);
-
-    // Add the job to the engine's job table
-    let job_id = {
-        let mut jobs = engine_state.jobs.lock().unwrap();
-        jobs.add_job(nu_protocol::engine::Job::Thread(job.clone()))
-    };
-
-    // Create a clone of the engine state with this job as the current job
-    let mut local_engine_state = engine_state.clone();
-    local_engine_state.current_job.background_thread_job = Some(job);
-
-    // Process with the local engine state that has the job context
-    let mut stack = Stack::new();
-    let input = PipelineData::Value(Value::string(line, Span::unknown()), None);
-
-    // Run the closure with the local engine state to ensure external commands
-    // are registered with our job
-    let result = eval_closure(&local_engine_state, &mut stack, closure, input, job_number);
-
-    // Handle the result
-    match result {
-        Ok(pipeline_data) => match pipeline_data.into_value(Span::unknown()) {
-            Ok(value) => match value {
-                Value::String { val, .. } => println!("Thread {}: {}", job_number, val),
-                Value::List { vals, .. } => {
-                    for val in vals {
-                        println!("Thread {}: {:?}", job_number, val);
-                    }
-                }
-                other => println!("Thread {}: {:?}", job_number, other),
-            },
-            Err(err) => eprintln!(
-                "Thread {}: Error converting pipeline data: {:?}",
-                job_number, err
-            ),
-        },
-        Err(error) => eprintln!("Thread {}: Error: {:?}", job_number, error),
-    }
-
-    // Remove the job from the job table when done
-    {
-        let mut jobs = engine_state.jobs.lock().unwrap();
-        jobs.remove_job(job_id);
-    }
-}
-
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Create the engine
-    let mut engine_state = create_engine()?;
-
+/// Sets up Ctrl-C handling for the application
+fn setup_ctrlc_handler(
+    engine_state: &mut EngineState,
+    shutdown_tx: mpsc::Sender<()>,
+) -> Result<Arc<AtomicBool>, Box<dyn std::error::Error>> {
     // Set up interrupt flag and attach it to engine_state
     let interrupt = Arc::new(AtomicBool::new(false));
     engine_state.set_signals(Signals::new(interrupt.clone()));
-
-    // Parse the closure
-    let closure_snippet = std::env::args().nth(1).expect("No closure provided");
-    let closure = parse_closure(&mut engine_state, &closure_snippet)?;
-
-    // Set up tokio channels
-    let (line_tx, line_rx) = mpsc::channel::<String>(100);
-    let (shutdown_tx, shutdown_rx) = mpsc::channel::<()>(1);
-
-    // Wrap in Arc after all setup is complete
-    let engine_state = Arc::new(engine_state);
 
     // Set up Ctrl+C handler with the shared engine_state
     let shutdown_tx_clone = shutdown_tx.clone();
@@ -306,6 +302,29 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     })?;
 
+    Ok(interrupt)
+}
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // Create the engine
+    let mut engine_state = create_engine()?;
+
+    // Set up tokio channels
+    let (line_tx, line_rx) = mpsc::channel::<String>(100);
+    let (shutdown_tx, shutdown_rx) = mpsc::channel::<()>(1);
+
+    // Set up Ctrl+C handler
+    let interrupt = setup_ctrlc_handler(&mut engine_state, shutdown_tx.clone())?;
+
+    // Parse the closure
+    let closure_snippet = std::env::args().nth(1).expect("No closure provided");
+    let closure = parse_closure(&mut engine_state, &closure_snippet)?;
+
+    // Wrap in Arc after all setup is complete
+    let engine_state = Arc::new(engine_state);
+    let closure = Arc::new(closure);
+    
     // Create a counter for active jobs
     let active_jobs = Arc::new(Mutex::new(0));
 
@@ -313,6 +332,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     std::thread::spawn(move || {
         let stdin = io::stdin();
         let lock = stdin.lock();
+
+        println!("Enter lines of text to process with the Nushell closure:");
+        println!("(Press Ctrl+C to exit)");
 
         for line in lock.lines() {
             if let Ok(line) = line {
@@ -325,7 +347,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     });
 
-    let closure = Arc::new(closure);
     let mut job_number = 0;
 
     // Process lines from stdin until EOF or interrupt
