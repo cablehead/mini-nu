@@ -269,7 +269,7 @@ fn setup_ctrlc_handler(
             interrupt.store(true, Ordering::Relaxed);
 
             // Kill and remove all active jobs
-            let kill_result = {
+            if let Err(err) = {
                 match engine_state.jobs.lock() {
                     Ok(mut jobs_guard) => {
                         let mut first_error = Ok(());
@@ -293,7 +293,9 @@ fn setup_ctrlc_handler(
                         format!("Jobs mutex poisoned: {}", poisoned),
                     )),
                 }
-            };
+            } {
+                eprintln!("Error killing jobs: {:?}", err);
+            }
 
             // Signal the main loop to shut down after attempting kill/remove
             let _ = shutdown_tx_clone.try_send(());
@@ -313,7 +315,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let (shutdown_tx, shutdown_rx) = mpsc::channel::<()>(1);
 
     // Set up Ctrl+C handler
-    let interrupt = setup_ctrlc_handler(&mut engine_state, shutdown_tx.clone())?;
+    let _interrupt = setup_ctrlc_handler(&mut engine_state, shutdown_tx.clone())?;
 
     // Parse the closure
     let closure_snippet = std::env::args().nth(1).expect("No closure provided");
