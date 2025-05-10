@@ -2,7 +2,7 @@
 
 This example demonstrates the core components needed to embed Nushell in a Rust application for single-execution workflows.
 
-## Core Nushell Structs and Functions
+## Core Nushell Components
 
 ### 1. `EngineState` (`./crates/nu-protocol/src/engine/engine_state.rs`)
 
@@ -123,12 +123,15 @@ pub enum Value {
 }
 ```
 
-## Key Functions for Embedding
+## Embedding Workflow
 
-### 1. `create_default_context` and `add_shell_command_context`
+The basic embedding pattern follows these steps, utilizing key Nushell functions:
 
+### 1. Initialize Engine
+Create an `EngineState` with default commands and shell capabilities.
+
+**Key Functions:** `create_default_context` and `add_shell_command_context`
 These functions create and configure the Nushell engine:
-
 ```rust
 // From ./crates/nu-cmd-lang/src/default_context.rs
 pub fn create_default_context() -> EngineState
@@ -136,7 +139,6 @@ pub fn create_default_context() -> EngineState
 // From nu_command
 pub fn add_shell_command_context(engine_state: EngineState) -> EngineState
 ```
-
 Usage:
 ```rust
 // Create the base engine state with core commands
@@ -146,15 +148,15 @@ let mut engine_state = create_default_context();
 engine_state = add_shell_command_context(engine_state);
 ```
 
-### 2. `gather_parent_env_vars`
+### 2. Setup Environment
+Add environment variables from the host process to the `EngineState`.
 
+**Key Function:** `gather_parent_env_vars`
 Collects environment variables from the host process:
-
 ```rust
 // From nu_cli
 pub fn gather_parent_env_vars(engine_state: &mut EngineState, cwd: &Path)
 ```
-
 Usage:
 ```rust
 // Get the current working directory
@@ -164,10 +166,11 @@ let init_cwd = std::env::current_dir()?;
 gather_parent_env_vars(&mut engine_state, init_cwd.as_ref());
 ```
 
-### 3. `nu_parser::parse`
+### 3. Parse Code
+Use a `StateWorkingSet` and `nu_parser::parse` to convert Nushell code (a string slice) into an executable `Block`. The changes made during parsing (like new declarations or definitions) are then merged back into the `EngineState`.
 
+**Key Function:** `nu_parser::parse`
 Parses Nushell code into an executable block:
-
 ```rust
 // From ./crates/nu-parser/src/parser.rs
 pub fn parse(
@@ -177,7 +180,6 @@ pub fn parse(
     scoped: bool,
 ) -> Arc<Block>
 ```
-
 Usage:
 ```rust
 // Create a working set for parsing operations
@@ -190,10 +192,11 @@ let block = nu_parser::parse(&mut working_set, None, code_snippet.as_bytes(), fa
 engine_state.merge_delta(working_set.render())?;
 ```
 
-### 4. `eval_block_with_early_return`
+### 4. Execute Code
+Create a `Stack` for runtime variable context and use `nu_engine::eval_block_with_early_return` to run the parsed `Block`. This function handles Nushell's control flow (like `return`, `break`, `continue`) correctly.
 
+**Key Function:** `eval_block_with_early_return`
 Evaluates a code block with proper handling of Nushell's control flow:
-
 ```rust
 // From ./crates/nu-engine/src/eval.rs
 pub fn eval_block_with_early_return<D: DebugContext>(
@@ -203,7 +206,6 @@ pub fn eval_block_with_early_return<D: DebugContext>(
     input: PipelineData,
 ) -> Result<PipelineData, ShellError>
 ```
-
 Usage:
 ```rust
 // Create a new stack for variable context
@@ -225,15 +227,8 @@ match eval_block_with_early_return::<WithoutDebug>(
 }
 ```
 
-## Complete Embedding Workflow
-
-The basic embedding pattern follows these steps:
-
-1. **Initialize Engine**: Create an `EngineState` with default commands and shell capabilities
-2. **Setup Environment**: Add environment variables from the host process
-3. **Parse Code**: Use `StateWorkingSet` and `parse` to convert Nushell code to an executable `Block`
-4. **Execute Code**: Create a `Stack` and use `eval_block_with_early_return` to run the code
-5. **Process Results**: Convert `PipelineData` to a Nushell `Value` and handle the output
+### 5. Process Results
+Convert the `PipelineData` returned from evaluation into a Nushell `Value` (or stream) and handle the output as needed (e.g., print to console, pass to other parts of your application).
 
 ## Example Usage
 

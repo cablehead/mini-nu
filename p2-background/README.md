@@ -231,3 +231,27 @@ This implementation includes tests that verify:
 - Simple scripts execute and complete correctly
 - External processes are properly tracked and terminated when interrupted
 - Signal handling works correctly for job control
+
+## Example Usage
+
+Run a simple command that completes quickly:
+```bash
+cargo run -p p2-background -- '"Hello from a background task!" | str upcase'
+```
+
+Run a command involving a long-running external process:
+```bash
+cargo run -p p2-background -- "^sleep 20; 'Slept for 20 seconds'"
+```
+You can press `Ctrl+C` to interrupt this command. The embedded Nushell engine will attempt to terminate the `sleep` process.
+
+## Testing
+
+The tests verify simple script execution and, importantly, that external processes started by Nushell are correctly terminated when the main application receives an interrupt signal.
+
+```bash
+cargo test -p p2-background
+```
+This involves:
+- A test for basic command execution.
+- A test that spawns a `sleep` command via the embedded Nushell, sends a `SIGINT` to the `p2-background` process, and verifies that both the main process and the child `sleep` process terminate.
