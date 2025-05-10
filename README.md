@@ -69,3 +69,7 @@ You can run and test each example individually using Cargo.
     cargo test -p p3-the-works
     ```
 *   **Details:** [p3-the-works/README.md](./p3-the-works/README.md)
+
+## Acknowledgements
+
+An early example from [@sophiajt](https://github.com/sophiajt) herself: https://github.com/sophiajt/nu_app
