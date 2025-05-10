@@ -1,38 +1,44 @@
 use assert_cmd::Command;
+use nix::sys::signal::{self, Signal};
+use nix::unistd::Pid as NixPid;
 use predicates::prelude::*;
+use std::io::Write;
+use std::process::{Command as StdCommand, Stdio};
+use std::thread;
+use std::time::Duration;
+use sysinfo::{Pid, System};
 
 #[test]
-fn test_threaded_concurrency() {
+fn test_concurrent_closures_execution_order() {
     let mut cmd = Command::cargo_bin(env!("CARGO_PKG_NAME")).unwrap();
 
-    // Simple closure that parses input as milliseconds to sleep
-    cmd.arg(r#"{|i| let dur = $in + "ms"; sleep ($dur | into duration); $"finished job ($i) after ($dur)"}"#)
-        .write_stdin("300\n200\n100\n")
+    // A Nushell closure that processes each line of input with variable delays
+    cmd.arg(r#"{|i| let dur = $in + "ms"; sleep ($dur | into duration); $"job ($i) processed in ($dur)"}"#)
+        .write_stdin("300\n200\n100\n") // Corresponds to job 0, 1, 2
         .assert()
         .success()
         // Results should be in order of completion time, not input order
-        .stdout(predicate::str::contains("finished job 2 after 100ms").count(1))
-        .stdout(predicate::str::contains("finished job 1 after 200ms").count(1))
-        .stdout(predicate::str::contains("finished job 0 after 300ms").count(1));
+        // Job 2 (100ms) finishes first, then Job 1 (200ms), then Job 0 (300ms)
+        .stdout(predicate::str::contains("Thread 2: job 2 processed in 100ms").count(1))
+        .stdout(predicate::str::contains("Thread 1: job 1 processed in 200ms").count(1))
+        .stdout(predicate::str::contains("Thread 0: job 0 processed in 300ms").count(1));
 }
 
-// Optional: Add additional tests specifically for async behavior
 #[test]
-fn test_graceful_shutdown() {
+fn test_custom_command_execution() {
     let mut cmd = Command::cargo_bin(env!("CARGO_PKG_NAME")).unwrap();
 
-    // Test that CTRL+C signal is handled properly
-    // Note: This is a simplified test that just ensures the program exits cleanly
-    // with successful status. In real-world, you might need to simulate CTRL+C.
-    cmd.arg(r#"{|i| $"processing ($i)"}"#)
-        .write_stdin("test\n")
+    // Execute a closure that calls our custom 'warble' command
+    cmd.arg(r#"{|_| warble}"#)
+        .write_stdin("trigger_job\n") // Send input to create a single job in the job queue
         .assert()
-        .success();
+        .success()
+        .stdout(predicate::str::contains("Thread 0: warble, oh my"));
 }
 
 #[test]
-fn test_external_process_with_interrupt() {
-    // Start the threaded app with a closure that sleeps for 10 seconds
+fn test_concurrent_external_process_interrupt() {
+    // Start the multithreaded engine with a long-running external process to test signal handling
     let mut cmd = StdCommand::new(assert_cmd::cargo::cargo_bin(env!("CARGO_PKG_NAME")))
         .arg(r#"{|_| $"Running sleep"; ^sleep 10; $"Done sleeping"}"#)
         .stdin(Stdio::piped())
@@ -66,29 +72,34 @@ fn test_external_process_with_interrupt() {
     // Check that our process has exited
     let status = cmd.try_wait().expect("Failed to check process status");
     assert!(status.is_some(), "Process did not exit after SIGINT");
+
+    // Verify all child processes have been terminated
+    let mut sys = System::new();
+    sys.refresh_all(); // Refresh process list again
+
+    for pid_val in pids {
+        let process_exists = sys.process(Pid::from_u32(pid_val)).is_some();
+        assert!(
+            !process_exists,
+            "Child process {} should have been terminated",
+            pid_val
+        );
+    }
 }
 
-use nix::sys::signal::{self, Signal};
-use nix::unistd::Pid as NixPid;
-use std::io::Write;
-use std::process::{Command as StdCommand, Stdio};
-use std::thread;
-use std::time::Duration;
-use sysinfo::{Pid, System};
-
 // Also need to add the get_child_pids function from background_test.rs
-fn get_child_pids(target: u32) -> Vec<u32> {
+fn get_child_pids(target_pid_val: u32) -> Vec<u32> {
     let mut sys = System::new();
     sys.refresh_all();
+    let target_sys_pid = Pid::from_u32(target_pid_val);
     sys.processes()
         .iter()
         .filter_map(|(pid, proc)| {
             // Check if this process's parent is our target
             match proc.parent() {
-                Some(parent_pid) if parent_pid == Pid::from_u32(target) => Some(*pid),
+                Some(parent_pid) if parent_pid == target_sys_pid => Some(pid.as_u32()),
                 _ => None,
             }
         })
-        .map(|pid| pid.as_u32())
         .collect()
 }
