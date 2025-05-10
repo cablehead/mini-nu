@@ -288,12 +288,10 @@ fn setup_ctrlc_handler(
 
                         first_error
                     }
-                    Err(poisoned) => {
-                        Err(std::io::Error::new(
-                            std::io::ErrorKind::Other,
-                            format!("Jobs mutex poisoned: {}", poisoned),
-                        ))
-                    }
+                    Err(poisoned) => Err(std::io::Error::new(
+                        std::io::ErrorKind::Other,
+                        format!("Jobs mutex poisoned: {}", poisoned),
+                    )),
                 }
             };
 
@@ -324,7 +322,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Wrap in Arc after all setup is complete
     let engine_state = Arc::new(engine_state);
     let closure = Arc::new(closure);
-    
+
     // Create a counter for active jobs
     let active_jobs = Arc::new(Mutex::new(0));
 

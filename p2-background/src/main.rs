@@ -19,11 +19,11 @@ fn create_engine() -> Result<EngineState, Box<dyn std::error::Error>> {
     // Initialize engine with standard commands
     let mut engine_state = create_default_context();
     engine_state = add_shell_command_context(engine_state);
-    
+
     // Set up environment
     let init_cwd = std::env::current_dir()?;
     gather_parent_env_vars(&mut engine_state, init_cwd.as_ref());
-    
+
     Ok(engine_state)
 }
 
@@ -105,12 +105,10 @@ fn run_script_in_background(
                 &block,
                 PipelineData::empty(),
             ) {
-                Ok(pipeline_data) => {
-                    match pipeline_data.into_value(Span::test_data()) {
-                        Ok(value) => print_result(value),
-                        Err(err) => eprintln!("Error converting pipeline data: {:?}", err),
-                    }
-                }
+                Ok(pipeline_data) => match pipeline_data.into_value(Span::test_data()) {
+                    Ok(value) => print_result(value),
+                    Err(err) => eprintln!("Error converting pipeline data: {:?}", err),
+                },
                 Err(error) => {
                     eprintln!("Error: {:?}", error);
                 }
@@ -128,7 +126,7 @@ fn run_script_in_background(
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Create the Nushell engine
     let mut engine_state = create_engine()?;
-    
+
     // Set up Ctrl-C protection with proper signal handling
     let interrupt = setup_ctrlc_handler(&mut engine_state);
 

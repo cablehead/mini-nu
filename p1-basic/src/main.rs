@@ -13,11 +13,11 @@ fn create_engine() -> Result<nu_protocol::engine::EngineState, Box<dyn std::erro
     // Initialize engine with standard commands
     let mut engine_state = create_default_context();
     engine_state = add_shell_command_context(engine_state);
-    
+
     // Set up environment
     let init_cwd = std::env::current_dir()?;
     gather_parent_env_vars(&mut engine_state, init_cwd.as_ref());
-    
+
     Ok(engine_state)
 }
 
@@ -54,12 +54,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         &block,
         PipelineData::empty(),
     ) {
-        Ok(pipeline_data) => {
-            match pipeline_data.into_value(Span::test_data()) {
-                Ok(value) => print_result(value),
-                Err(err) => eprintln!("Error converting pipeline data: {:?}", err),
-            }
-        }
+        Ok(pipeline_data) => match pipeline_data.into_value(Span::test_data()) {
+            Ok(value) => print_result(value),
+            Err(err) => eprintln!("Error converting pipeline data: {:?}", err),
+        },
         Err(error) => {
             eprintln!("Error: {:?}", error);
         }
