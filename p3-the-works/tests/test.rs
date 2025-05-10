@@ -3,7 +3,7 @@ use predicates::prelude::*;
 
 #[test]
 fn test_threaded_concurrency() {
-    let mut cmd = Command::cargo_bin("threaded").unwrap();
+    let mut cmd = Command::cargo_bin(env!("CARGO_PKG_NAME")).unwrap();
 
     // Simple closure that parses input as milliseconds to sleep
     cmd.arg(r#"{|i| let dur = $in + "ms"; sleep ($dur | into duration); $"finished job ($i) after ($dur)"}"#)
@@ -19,7 +19,7 @@ fn test_threaded_concurrency() {
 // Optional: Add additional tests specifically for async behavior
 #[test]
 fn test_graceful_shutdown() {
-    let mut cmd = Command::cargo_bin("threaded").unwrap();
+    let mut cmd = Command::cargo_bin(env!("CARGO_PKG_NAME")).unwrap();
 
     // Test that CTRL+C signal is handled properly
     // Note: This is a simplified test that just ensures the program exits cleanly
@@ -33,7 +33,7 @@ fn test_graceful_shutdown() {
 #[test]
 fn test_external_process_with_interrupt() {
     // Start the threaded app with a closure that sleeps for 10 seconds
-    let mut cmd = StdCommand::new(assert_cmd::cargo::cargo_bin("threaded"))
+    let mut cmd = StdCommand::new(assert_cmd::cargo::cargo_bin(env!("CARGO_PKG_NAME")))
         .arg(r#"{|_| $"Running sleep"; ^sleep 10; $"Done sleeping"}"#)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())

@@ -10,7 +10,7 @@ use sysinfo::{Pid, System};
 fn test_simple_script_completes() {
     // Test running a simple script that returns the number 5
     // This should complete quickly and exit normally
-    let mut cmd = Command::cargo_bin("background").unwrap();
+    let mut cmd = Command::cargo_bin(env!("CARGO_PKG_NAME")).unwrap();
     let assert = cmd.arg("5").assert();
     // Should exit with success
     assert.success().stdout(predicates::str::contains("5"));
@@ -18,7 +18,7 @@ fn test_simple_script_completes() {
 
 #[test]
 fn test_external_process_with_interrupt() {
-    let mut cmd = StdCommand::new(assert_cmd::cargo::cargo_bin("background"))
+    let mut cmd = StdCommand::new(assert_cmd::cargo::cargo_bin(env!("CARGO_PKG_NAME")))
         .arg("^sleep 10; 5")
         .stdout(Stdio::piped())
         .spawn()
