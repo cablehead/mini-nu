@@ -1,4 +1,4 @@
-# example: p1‑basic
+### p1‑basic
 
 _embed Nushell and run one command from Rust in 15 lines_
 
@@ -81,9 +81,6 @@ Want Ctrl‑C handling and background jobs? →
 
 ---
 
-<details>
-<summary>Internals &amp; further reading</summary>
-
 - [How Nushell Code Gets Run](https://www.nushell.sh/book/how_nushell_code_gets_run.html)
   — deep dive into the pipeline that turns text into executed blocks.
 - [nu-protocol API docs](https://docs.rs/nu-protocol/latest/nu_protocol/) —
@@ -93,4 +90,3 @@ Want Ctrl‑C handling and background jobs? →
   [`PipelineData`](https://docs.rs/nu-protocol/latest/nu_protocol/struct.PipelineData.html),
   etc.
 
-</details>
