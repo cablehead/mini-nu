@@ -8,12 +8,12 @@ Ctrl‑C.
 
 ---
 
-## TL;DR — run it now
+## TL;DR
 
-```bash
+```
 # From the repo root
 cargo run -p p2-background -- '^sleep 10; "done!"'
-# Press Ctrl‑C before 10 s expires → "done!" never prints, sleep is killed.
+# Press Ctrl-C before 10 s expires → "done!" never prints, sleep is killed.
 ```
 
 _(Full source in [`src/main.rs`](./src/main.rs).)_
@@ -75,7 +75,7 @@ loop {
 
 ## Tests (optional)
 
-```bash
+```
 cargo test -p p2-background
 ```
 
@@ -88,12 +88,12 @@ cargo test -p p2-background
 ## What's next?
 
 Need custom commands and multiple concurrent pipelines? →
-**[Jump to `p3-the‑works` ›](../p3-the-works/README.md)** _(Missed the basics?
-[Back to `p1-basic` ›](../p1-basic/README.md))_
+**[Continue to `p3-the-works` →](../p3-the-works/README.md)** _(Missed the basics?
+[← Back to `p1-basic`](../p1-basic/README.md))_
 
 ---
 
-## Internals & further reading</summary
+## Further reading
 
 - **Jobs & signals** — `nu-protocol`'s
   [`Jobs`](https://docs.rs/nu-protocol/latest/nu_protocol/engine/struct.Jobs.html)

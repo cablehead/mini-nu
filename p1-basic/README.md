@@ -7,9 +7,9 @@ executes **one** command.
 
 ---
 
-## TL;DR — run it now
+## TL;DR
 
-```bash
+```
 # From the repo root
 cargo run -p p1-basic -- '"hello, nushell" | str upcase'
 # → HELLO, NUSHELL
@@ -66,7 +66,7 @@ println!("{:?}", out.into_value(nu_protocol::Span::unknown())?);
 
 ## Tests (optional)
 
-```bash
+```
 cargo test -p p1-basic
 ```
 
@@ -76,8 +76,8 @@ Running tests verifies the engine prints **P1: HELLO WORLD!**
 
 ## What's next?
 
-Want Ctrl‑C handling and background jobs? →
-**[Continue to `p2-background` ›](../p2-background/README.md)**
+Want Ctrl-C handling and background jobs? →
+**[Continue to `p2-background` →](../p2-background/README.md)**
 
 ---
 

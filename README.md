@@ -31,8 +31,8 @@ application:
 
 ## 30‑second quick‑start
 
-```bash
-git clone https://github.com/your‑org/mini-nu.git
+```
+git clone https://github.com/your-org/mini-nu.git
 cd mini-nu
 
 # Build the whole workspace
@@ -57,7 +57,7 @@ cargo run -p p1-basic -- '"hello" | str upcase'
 
 ## Running every test
 
-```bash
+```
 cargo test --workspace
 ```
 

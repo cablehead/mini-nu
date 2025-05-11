@@ -9,12 +9,12 @@ Think of it as a miniature Nushell inside your Rust app.
 
 ---
 
-## TL;DR — run it now
+## TL;DR
 
-```bash
+```
 # From the repo root
 cargo run -p p3-the-works -- '{|n| $"Input ($n): ($in) processed!" }'
-# type a few lines, press Ctrl‑D → each line prints back with its index
+# type a few lines, press Ctrl-D → each line prints back with its index
 ```
 
 _(Full source in [`src/main.rs`](./src/main.rs).)_
@@ -80,7 +80,7 @@ _(See code comments in [`src/main.rs`](./src/main.rs) for full context.)_
 
 ## Tests (optional)
 
-```bash
+```
 cargo test -p p3-the-works
 ```
 
@@ -94,12 +94,12 @@ cargo test -p p3-the-works
 
 ## Need a refresher?
 
-- ← [Back to `p2-background`](../p2-background/README.md)
-- ← [Back to `p1-basic`](../p1-basic/README.md)
+- [← Back to `p2-background`](../p2-background/README.md)
+- [← Back to `p1-basic`](../p1-basic/README.md)
 
 ---
 
-## Internals & further reading
+## Further reading
 
 - **EngineState / ThreadJob API** — see
   [`nu-protocol`](https://docs.rs/nu-protocol) docs.
