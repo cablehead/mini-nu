@@ -1,6 +1,6 @@
-# p1‑basic — embed Nushell and run one command from Rust in 15 lines
+# p1‑basic — embed Nushell and run one command from Rust in 15 lines
 
-A microscopic example that boots the Nushell engine inside a Rust binary and executes **one** command.
+A microscopic example that boots the Nushell engine inside a Rust binary and executes **one** command.
 
 ---
 
@@ -10,7 +10,7 @@ A microscopic example that boots the Nushell engine inside a Rust binary and e
 # From the repo root
 cargo run -p p1-basic -- '"hello, nushell" | str upcase'
 # → HELLO, NUSHELL
-````
+```
 
 *(See the complete source in [`src/main.rs`](./src/main.rs).)*
 
@@ -18,11 +18,11 @@ cargo run -p p1-basic -- '"hello, nushell" | str upcase'
 
 ## What this example adds
 
-| Capability            | Where it happens                                      |
-| --------------------- | ----------------------------------------------------- |
-| Boot Nushell engine   | `create_default_context()`                            |
-| Inherit host env vars | `gather_parent_env_vars()`                            |
-| Parse + execute code  | `nu_parser::parse` → `eval_block_with_early_return()` |
+| Capability | Where it happens |
+| ------------- | ------------- |
+| Boot Nushell engine | [`create_default_context()`](https://docs.rs/nu-cmd-lang/latest/nu_cmd_lang/fn.create_default_context.html) |
+| Inherit host env vars | [`gather_parent_env_vars()`](https://docs.rs/nu-cli/latest/nu_cli/fn.gather_parent_env_vars.html) |
+| Parse + execute code | [`nu_parser::parse`](https://docs.rs/nu-parser/latest/nu_parser/fn.parse.html) → [`eval_block_with_early_return()`](https://docs.rs/nu-engine/latest/nu_engine/fn.eval_block_with_early_return.html) |
 
 ---
 
@@ -67,26 +67,21 @@ println!("{:?}", out.into_value(nu_protocol::Span::unknown())?);
 cargo test -p p1-basic
 ```
 
-Running tests verifies the engine prints **P1: HELLO WORLD!**
+Running tests verifies the engine prints **P1: HELLO WORLD!**
 
 ---
 
-## What’s next?
+## What's next?
 
 Want Ctrl‑C handling and background jobs?
-→ **[Continue to `p2-background` ›](../p2-background/README.md)**
+→ **[Continue to `p2-background` ›](../p2-background/README.md)**
 
 ---
 
 <details>
 <summary>Internals &amp; further reading</summary>
 
-* [How Nushell Code Gets Run] — deep dive into the pipeline that turns text into executed blocks. ([Nushell][1])
-* [`nu-protocol` API docs] — reference for `EngineState`, `Stack`, `PipelineData`, etc. ([Docs.rs][2])
+* [How Nushell Code Gets Run](https://www.nushell.sh/book/how_nushell_code_gets_run.html) — deep dive into the pipeline that turns text into executed blocks.
+* [nu-protocol API docs](https://docs.rs/nu-protocol/latest/nu_protocol/) — reference for [`EngineState`](https://docs.rs/nu-protocol/latest/nu_protocol/engine/struct.EngineState.html), [`Stack`](https://docs.rs/nu-protocol/latest/nu_protocol/engine/struct.Stack.html), [`PipelineData`](https://docs.rs/nu-protocol/latest/nu_protocol/struct.PipelineData.html), etc.
 
 </details>
-
-[How Nushell Code Gets Run]: https://www.nushell.sh/book/how_nushell_code_gets_run.html
-[`nu-protocol` API docs]: https://docs.rs/nu-protocol/0.104.0/nu_protocol/
-[1]: https://www.nushell.sh/book/how_nushell_code_gets_run.html?utm_source=chatgpt.com "How Nushell Code Gets Run"
-[2]: https://docs.rs/nu-protocol/latest/nu_protocol/enum.ShellError.html "ShellError in nu_protocol - Rust"
