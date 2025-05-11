@@ -70,11 +70,11 @@ _(See code comments in [`src/main.rs`](./src/main.rs) for full context.)_
 
 ## Try these demos
 
-| Demo                                    | Command to pass |
-| --------------------------------------- | --------------- |
-| Upper‑case each line                    | `'{             |
-| Use the **custom** `warble` command     | `'{             |
-| Show task finish order (100‑200‑300 ms) | `'{             |
+| Demo                                    | Command to pass                                                                                   |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| Upper‑case each line                    | `'{\|_\| $in \| str upcase }'`                                                                    |
+| Use the **custom** `warble` command     | `'{\|_\| warble}'`                                                                                |
+| Show task finish order (100‑200‑300 ms) | `'{\|i\| sleep (($in)ms \| into duration); $"job ($i) done"}'` then pipe `100 200 300` into stdin |
 
 ---
 
