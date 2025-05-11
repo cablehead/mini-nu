@@ -1,4 +1,3 @@
-````md
 # p1‑basic — embed Nushell and run one command from Rust in 15 lines
 
 A microscopic example that boots the Nushell engine inside a Rust binary and executes **one** command.
@@ -52,8 +51,6 @@ let out = nu_engine::eval_block_with_early_return::<nu_protocol::debugger::Witho
 println!("{:?}", out.into_value(nu_protocol::Span::unknown())?);
 ```
 
-*(Only \~15 effective lines; full error‑handling elided for clarity.)*
-
 ---
 
 ## Try these next
@@ -88,7 +85,6 @@ Want Ctrl‑C handling and background jobs?
 * [`nu-protocol` API docs] — reference for `EngineState`, `Stack`, `PipelineData`, etc. ([Docs.rs][2])
 
 </details>
-```
 
 [How Nushell Code Gets Run]: https://www.nushell.sh/book/how_nushell_code_gets_run.html
 [`nu-protocol` API docs]: https://docs.rs/nu-protocol/0.104.0/nu_protocol/
