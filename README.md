@@ -80,9 +80,8 @@ mini-nu/
 ```
 
 Shared deps such as **`nu-cmd-lang`** (boots the engine)
-([Docs.rs](https://docs.rs/nu-cmd-lang)), **`nu-protocol`** (core types)
-([Docs.rs](https://docs.rs/nu-protocol)) and **`tokio`** for async work
-([Crates](https://crates.io/crates/tokio)) live in `[workspace.dependencies]`.
+([Docs.rs](https://docs.rs/nu-cmd-lang)), and **`nu-protocol`** (core types)
+([Docs.rs](https://docs.rs/nu-protocol)) live in `[workspace.dependencies]`.
 
 ---
 
