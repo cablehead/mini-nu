@@ -51,7 +51,7 @@ cargo run -p p1-basic -- '"hello" | str upcase'
 |-------|-----------------|-----------------|
 | **[p1‑basic](./p1-basic/README.md)** | `cargo r -p p1-basic '"hello" \| str upcase'` | `HELLO` |
 | **[p2‑background](./p2-background/README.md)** | `cargo r -p p2-background '^sleep 5; "done"'` | `done` |
-| **[p3-the-works](./p3-the-works/README.md)** | `cargo r -p p3-the-works '{\|_\| warble}'` | `warble, oh my` (for each line of input) |
+| **[p3-the-works](./p3-the-works/README.md)** | `cargo r -p p3-the-works '{\|_\| warble}'` | `warble, oh my`<br/><small>(for each line of input)</small> |
 
 ---
 
