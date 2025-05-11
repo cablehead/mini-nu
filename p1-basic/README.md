@@ -1,6 +1,6 @@
 ### p1‑basic
 
-_embed Nushell and run one command from Rust in 15 lines_
+## embed Nushell and run one command from Rust in 15 lines
 
 A microscopic example that boots the Nushell engine inside a Rust binary and
 executes **one** command.
