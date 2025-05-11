@@ -1,15 +1,19 @@
 ````md
-# p1‑basic – embed Nushell and run one command from Rust in 15 lines
+# p1‑basic — embed Nushell and run one command from Rust in 15 lines
 
-## TL;DR (30‑second quick‑start)
+A microscopic example that boots the Nushell engine inside a Rust binary and executes **one** command.
+
+---
+
+## TL;DR — run it now
 
 ```bash
-# Build & run
+# From the repo root
 cargo run -p p1-basic -- '"hello, nushell" | str upcase'
 # → HELLO, NUSHELL
 ````
 
-▶︎ **Full source:** [`src/main.rs`](./src/main.rs)
+*(See the complete source in [`src/main.rs`](./src/main.rs).)*
 
 ---
 
@@ -18,44 +22,45 @@ cargo run -p p1-basic -- '"hello, nushell" | str upcase'
 | Capability            | Where it happens                                      |
 | --------------------- | ----------------------------------------------------- |
 | Boot Nushell engine   | `create_default_context()`                            |
-| Inherit host env vars | `gather_parent_env_vars()`                            |
-| Parse + execute code  | `nu_parser::parse` → `eval_block_with_early_return()` |
+| Inherit host env vars | `gather_parent_env_vars()`                            |
+| Parse + execute code  | `nu_parser::parse` → `eval_block_with_early_return()` |
 
 ---
 
 ## Minimal walkthrough
 
 ```rust
-// 1. Boot engine
-let mut engine = create_default_context();
+// 1. Boot the engine
+let mut engine = nu_cmd_lang::create_default_context();
 
-// 2. Inherit env
-gather_parent_env_vars(&mut engine, std::env::current_dir()?.as_ref());
+// 2. Import parent‑process environment
+nu_cli::gather_parent_env_vars(&mut engine, std::env::current_dir()?.as_ref());
 
-// 3. Parse one‑liner from CLI
-let mut ws = StateWorkingSet::new(&engine);
+// 3. Parse user‑supplied Nushell code
+let mut ws = nu_protocol::engine::StateWorkingSet::new(&engine);
 let block = nu_parser::parse(&mut ws, None, code.as_bytes(), false);
 engine.merge_delta(ws.render())?;
 
-// 4. Run & print
-let mut stack = Stack::new();
-let out = eval_block_with_early_return::<WithoutDebug>(
-    &engine, &mut stack, &block, PipelineData::empty()
-)?.into_value(Span::unknown())?;
-println!("{out}");
+// 4. Run the block and print the result
+let mut stack = nu_protocol::engine::Stack::new();
+let out = nu_engine::eval_block_with_early_return::<nu_protocol::debugger::WithoutDebug>(
+    &engine,
+    &mut stack,
+    &block,
+    nu_protocol::PipelineData::empty(),
+)?;
+println!("{:?}", out.into_value(nu_protocol::Span::unknown())?);
 ```
 
-*(See the full file for robust error handling.)*
+*(Only \~15 effective lines; full error‑handling elided for clarity.)*
 
 ---
 
 ## Try these next
 
-```bash
-'"hi" | str length'             # string length
-"10 + 20 * 3"                   # math
-"ls | where type == file | length"   # file count
-```
+* `'"hi there" | str length'` – count characters
+* `"10 + 20 * 3"` – quick math
+* `"ls | where type == file | length"` – count files in the current dir
 
 ---
 
@@ -65,29 +70,27 @@ println!("{out}");
 cargo test -p p1-basic
 ```
 
-> Ensures the engine prints **P1: HELLO WORLD!**
+Running tests verifies the engine prints **P1: HELLO WORLD!**
 
 ---
 
 ## What’s next?
 
-Need background jobs & Ctrl‑C cleanup?
-→ **[p2‑background ›](../p2-background/README.md)**
+Want Ctrl‑C handling and background jobs?
+→ **[Continue to `p2-background` ›](../p2-background/README.md)**
 
 ---
 
-## Internals (for the curious)
-
 <details>
-<summary>EngineState, Stack, PipelineData …</summary>
+<summary>Internals &amp; further reading</summary>
 
-* **Nushell book – *How Nushell Code Gets Run*** – in‑depth look at parsing, compilation and evaluation. ([Nushell][1])
-* **API docs for `nu‑protocol`** – types like `EngineState`, `Stack`, `Value`, etc.
-  [https://docs.rs/nu-protocol/0.104.0/nu\_protocol/](https://docs.rs/nu-protocol/0.104.0/nu_protocol/) ([docs.rs][2])
+* [How Nushell Code Gets Run] — deep dive into the pipeline that turns text into executed blocks. ([Nushell][1])
+* [`nu-protocol` API docs] — reference for `EngineState`, `Stack`, `PipelineData`, etc. ([Docs.rs][2])
 
 </details>
 ```
-::contentReference[oaicite:2]{index=2}
 
+[How Nushell Code Gets Run]: https://www.nushell.sh/book/how_nushell_code_gets_run.html
+[`nu-protocol` API docs]: https://docs.rs/nu-protocol/0.104.0/nu_protocol/
 [1]: https://www.nushell.sh/book/how_nushell_code_gets_run.html?utm_source=chatgpt.com "How Nushell Code Gets Run"
-[2]: https://docs.rs/nu-protocol?utm_source=chatgpt.com "nu_protocol - Rust - Docs.rs"
+[2]: https://docs.rs/nu-protocol/latest/nu_protocol/enum.ShellError.html "ShellError in nu_protocol - Rust"
