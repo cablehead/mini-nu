@@ -1,184 +1,115 @@
-# p3-the-works: Advanced Nushell Embedding
+### p3‑the‑works
 
-This example demonstrates a more complex embedding scenario for Nushell, building upon the concepts from `p1-basic` and `p2-background`. It showcases:
+## custom commands, parallel pipelines, and graceful shutdown
 
-1.  **Custom Nushell Commands**: How to define and register your own commands written in Rust, making them available within the embedded Nushell engine.
-2.  **Parsing and Executing Nushell Closures**: Taking a Nushell closure as input (e.g., from command-line arguments), parsing it, and then executing it for different inputs.
-3.  **Managing Multiple Concurrent Background Jobs**: Processing multiple items (e.g., lines from `stdin`) concurrently, each in its own Nushell "job context" using `tokio` for asynchronous task management.
-4.  **Robust Signal Handling and Shutdown**: Ensuring that `Ctrl+C` interrupts are handled gracefully, terminating all active Nushell jobs and their potential child processes, and allowing the application to shut down cleanly.
-5.  **Using `add_cli_context`**: Incorporating additional CLI-related commands and context into the engine.
+The "everything bagel" example: it boots Nushell with a **custom command**
+(`warble`), compiles a **user‑supplied closure**, spawns that closure for every
+stdin line on its own Tokio task, _and_ shuts everything down cleanly on Ctrl‑C.
+Think of it as a miniature Nushell inside your Rust app.
 
-This example is suitable for applications that need to deeply integrate Nushell as a scripting or processing engine, offering extensibility and handling concurrent, potentially long-running tasks.
+---
 
-## Core Nushell Components and Concepts
+## TL;DR — run it now
 
-### 1. Custom Commands (`nu-protocol/src/engine/command.rs`)
+```bash
+# From the repo root
+cargo run -p p3-the-works -- '{|n| $"Input ($n): ($in) processed!" }'
+# type a few lines, press Ctrl‑D → each line prints back with its index
+```
 
-Nushell allows embedding applications to define their own commands by implementing the `Command` trait:
+_(Full source in [`src/main.rs`](./src/main.rs).)_
+
+---
+
+## What this example adds
+
+| Capability                                  | Where it happens                                                                                                                                                                                                         |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Custom command** `warble`                 | `add_custom_commands()` registers `Warble` with [`StateWorkingSet::add_decl`](https://docs.rs/nu-protocol/latest/nu_protocol/engine/struct.StateWorkingSet.html#method.add_decl)                                         |
+| **CLI helpers** (history, completion, etc.) | [`add_cli_context`](https://docs.rs/nu-cli/latest/nu_cli/)                                                                                                                                                               |
+| **Closure parsing & caching**               | `parse_closure()` uses [`nu_parser::parse`](https://docs.rs/nu-parser/latest/nu_parser/fn.parse.html) then converts the result to [`Closure`](https://www.nushell.sh/lang-guide/chapters/types/basic_types/closure.html) |
+| **Concurrent jobs**                         | Every stdin line is sent down a channel and processed via `tokio::spawn`/`spawn_blocking` (docs: [`spawn_blocking`](https://docs.rs/tokio/latest/tokio/task/fn.spawn_blocking.html))                                     |
+| **Job accounting & clean exit**             | Shared `active_jobs: Arc<Mutex<usize>>` tracks in‑flight work (why [`Arc + Mutex`](https://itsallaboutthebit.com/arc-mutex/))                                                                                            |
+| **Process‑group cleanup**                   | Each task clones the current [`ThreadJob`](https://docs.rs/nu-protocol/latest/nu_protocol/engine/struct.ThreadJob.html) so external commands get killed on interrupt                                                     |
+| **Ctrl‑C handling**                         | `setup_ctrlc_handler()` with the [`ctrlc` crate](https://crates.io/crates/ctrlc)                                                                                                                                         |
+| **Background‑job semantics**                | Mirrors Nushell's own [background‑jobs design](https://www.nushell.sh/book/background_jobs.html)                                                                                                                         |
+
+---
+
+## Minimal architecture walkthrough
 
 ```rust
-pub trait Command: Send + Sync + CommandClone + std::fmt::Debug + 'static {
-    fn name(&self) -> &str;
-    fn signature(&self) -> Signature;
-    fn usage(&self) -> &str; // Corrected from description() for actual trait method for usage string
-    fn run(
-        &self,
-        engine_state: &EngineState,
-        stack: &mut Stack,
-        call: &Call,
-        input: PipelineData,
-    ) -> Result<PipelineData, ShellError>;
-    // ... other methods ...
-}
-```
--   **Implementation**: In `src/main.rs`, the `Warble` struct implements `Command`.
--   **Registration**: Custom commands are added to the `EngineState` using a `StateWorkingSet` and `engine_state.merge_delta()`:
-    ```rust
-    // In add_custom_commands function
-    let delta = {
-        let mut working_set = StateWorkingSet::new(&engine_state);
-        working_set.add_decl(Box::new(Warble)); // Warble is our custom command
-        working_set.render()
-    };
-    engine_state.merge_delta(delta)?;
-    ```
+// 1. Engine with core + CLI + custom command -------------------------------
+let mut engine = nu_cmd_lang::create_default_context();        // core built‑ins
+engine = nu_command::add_shell_command_context(engine);        // OS helpers
+engine = nu_cli::add_cli_context(engine);                      // history, prompt
+engine = add_custom_commands(engine);                          // our `warble`
 
-### 2. Parsing and Evaluating Closures
+// 2. Parse user‑provided closure once --------------------------------------
+let closure = parse_closure(&mut engine, closure_snippet)?;    // nu_parser::parse + eval
 
--   **Closures (`nu-protocol/src/ast/closure.rs` - conceptually, though Value::Closure holds the data)**: Nushell closures are first-class values.
-    ```rust
-    // From nu-protocol/src/value/mod.rs
-    // Value::Closure { val: Box<Closure>, internal_span: Span }
-    //
-    // From nu-protocol/src/engine/closure.rs (actual struct)
-    pub struct Closure {
-        pub block_id: BlockId,
-        pub captures: IndexMap<VarId, Value>, // More accurate type
-    }
-    ```
--   **Parsing a Closure String**: A string containing Nushell code for a closure is parsed into a `Block`, then evaluated to produce a `Value::Closure`.
-    ```rust
-    // In parse_closure function (src/main.rs)
-    let mut working_set = StateWorkingSet::new(engine_state);
-    let block = nu_parser::parse(&mut working_set, None, closure_snippet.as_bytes(), false);
-    engine_state.merge_delta(working_set.render())?; // Apply parsing changes
+// 3. Set up Ctrl‑C ---------------------------------------------------------
+let interrupt = setup_ctrlc_handler(&mut engine)?;             // ctrlc crate
 
-    let mut stack = Stack::new();
-    // Evaluate the block that defines the closure
-    let result = nu_engine::eval_block::<WithoutDebug>(engine_state, &mut stack, &block, PipelineData::empty())?;
-    // The result of evaluating a {|| ...} block is the closure itself
-    let closure_val = result.into_value(Span::unknown())?.into_closure()?;
-    ```
--   **Evaluating a Parsed Closure**: The `eval_closure` helper function in `src/main.rs` demonstrates how to execute a `Closure` with new input and arguments. It retrieves the `Block` associated with the closure's `block_id` and uses `nu_engine::eval_block_with_early_return`.
+// 4. Fan‑in stdin lines, fan‑out jobs --------------------------------------
+tokio::spawn(async move {
+    // For every line:
+    tokio::spawn(async move {
+        tokio::task::spawn_blocking(move || {
+            process_job(&engine, &closure, &line, job_no)      // eval_block*
+        }).await.ok();
+    });
+});
 
-### 3. Job Management for Concurrent Tasks (`EngineState`, `ThreadJob`)
-
-This example extends the job management from `p2-background` to handle multiple concurrent tasks, each processing a line from `stdin`.
--   For each line of input, a new `ThreadJob` is created and registered with the global `EngineState.jobs`.
--   A *clone* of the `EngineState` is made, and `current_job.background_thread_job` is set to this new `ThreadJob`. This localized `EngineState` is then used for evaluating the closure for that specific input line. This ensures that any external commands run by that instance of the closure are associated with the correct `ThreadJob`.
--   `tokio::spawn_blocking` is used to run the Nushell evaluation (which can be CPU-bound) in a way that doesn't block the `tokio` runtime.
-
-### 4. Signal Handling (`ctrlc`, `Signals`, `EngineState.jobs`)
-
--   Similar to `p2-background`, `ctrlc` is used to detect `SIGINT`.
--   When an interrupt occurs:
-    1.  The shared `AtomicBool` interrupt flag (part of `Signals` in `EngineState`) is set.
-    2.  The handler iterates through all jobs in `engine_state.jobs.lock().unwrap()` and calls `kill_and_remove()` for each. This leverages Nushell's built-in mechanism to signal `ThreadJob`s and, by extension, their associated external processes.
-    3.  A `tokio` shutdown signal is sent to gracefully stop the main input processing loop.
-
-### 5. `add_cli_context` (`nu-cli/src/lib.rs`)
-
-The `nu_cli::add_cli_context` function is used during engine setup. This function adds a suite of commands and configurations typically available in the Nushell CLI but not part of the bare `create_default_context()`, such as `less`, `tutor`, etc., and registers environment converters.
-
-```rust
-// In create_engine function (src/main.rs)
-engine_state = nu_cli::add_cli_context(engine_state);
+// 5. Main thread waits until active_jobs == 0 or interrupt -----------------
 ```
 
-## Embedding Workflow
+_(See code comments in [`src/main.rs`](./src/main.rs) for full context.)_
 
-1.  **Initialize Engine**: Create `EngineState`, add default, shell, CLI, and custom commands.
-2.  **Setup Signal Handling**: Configure `ctrlc` to set an interrupt flag on `EngineState.signals` and trigger job termination and application shutdown.
-3.  **Parse Input Closure**: Take a Nushell closure string (e.g., from args), parse it, and evaluate it to get a `Value::Closure`.
-4.  **Process Input Lines (Asynchronously with Tokio)**:
-    a.  Read lines from `stdin` in a separate (standard) thread.
-    b.  For each line, send it to a `tokio` MPSC channel.
-    c.  The main `tokio` async `process_input_lines` function receives lines from the channel:
-        i.  For each line, spawn a `tokio` task (using `tokio::task::spawn_blocking` for the potentially CPU-bound Nushell evaluation).
-        ii. Inside the task executed by `spawn_blocking`:
-            1.  Create a new `ThreadJob` and add it to `EngineState.jobs`.
-            2.  Create a local `EngineState` clone and set its `current_job.background_thread_job` to the new `ThreadJob`.
-            3.  Evaluate the parsed closure using this local `EngineState`, passing the input line and a job number.
-            4.  Print results.
-            5.  Remove the `ThreadJob` from `EngineState.jobs`.
-5.  **Shutdown**:
-    a.  On `Ctrl+C`, the handler kills all jobs and signals the `tokio` processing loop (via `shutdown_tx`) to stop accepting new work.
-    b.  On `stdin` EOF, the input thread finishes, the MPSC `line_tx` channel is dropped, and the `tokio` processing loop (`line_rx.recv()`) will eventually receive `None` and terminate.
-    c.  The application waits for all active `tokio` tasks (tracked by `active_jobs` counter) to complete before exiting.
+---
 
-## Example Usage
+## Try these demos
 
-The application expects a Nushell closure as its first command-line argument. This closure will be applied to each line read from `stdin`. The closure in `p3-the-works` is set up to receive one argument, which the Rust code populates with a unique job/line number. `$in` can be used within the closure to access the line content.
+| Demo                                    | Command to pass |
+| --------------------------------------- | --------------- |
+| Upper‑case each line                    | `'{             |
+| Use the **custom** `warble` command     | `'{             |
+| Show task finish order (100‑200‑300 ms) | `'{             |
 
-**Example 1: Simple line processing**
-Run the application:
-```bash
-cargo run -p p3-the-works -- '{|idx| $"Job ({$idx}) processed line: ($in | str upcase)" }'
-```
-Then, in the running application, type:
-```
-hello nushell
-this is fun
-```
-Output will be something like:
-```
-Enter lines of text to process with the Nushell closure:
-(Press Ctrl+C to exit)
-Thread 0 starting execution
-Thread 1 starting execution
-Thread 0: Job (0) processed line: HELLO NUSHELL
-Thread 1: Job (1) processed line: THIS IS FUN
-```
-(Order of "processed line" output may vary due to concurrency). Press `Ctrl+D` to end input or `Ctrl+C` to interrupt.
+---
 
-**Example 2: Using the custom `warble` command**
-```bash
-cargo run -p p3-the-works -- '{|_| warble | str join "-" }'
-```
-Then, type:
-```
-trigger warble
-another one
-```
-Output (order of "Thread X starting" and result lines may interleave):
-```
-Enter lines of text to process with the Nushell closure:
-(Press Ctrl+C to exit)
-Thread 0 starting execution
-Thread 0: w-a-r-b-l-e-,- -o-h- -m-y
-Thread 1 starting execution
-Thread 1: w-a-r-b-l-e-,- -o-h- -m-y
-```
-
-**Example 3: Running external commands concurrently**
-```bash
-cargo run -p p3-the-works -- '{|i| $"Job ({$i}) sleeping for ($in) seconds..."; ^sleep ($in | into int); $"Job ({$i}) woke up." }'
-```
-Then, type:
-```
-3
-1
-2
-```
-This will run three `sleep` commands concurrently. `Ctrl+C` will terminate them all.
-
-## Testing
-
-The tests verify:
--   Concurrent execution of closures with varying sleep times, checking for correct output order based on completion time.
--   Execution of the custom `warble` command.
--   Correct termination of concurrent external processes (like `sleep`) when the main application is interrupted via `SIGINT`.
+## Tests (optional)
 
 ```bash
 cargo test -p p3-the-works
 ```
+
+- Suite checks:
+
+1. **Execution order** for staggered sleeps
+2. **Custom command** output
+3. **SIGINT** kills parent **and** child `sleep` processes
+
+---
+
+## Need a refresher?
+
+- ← [Back to `p2-background`](../p2-background/README.md)
+- ← [Back to `p1-basic`](../p1-basic/README.md)
+
+---
+
+## Internals & further reading
+
+- **EngineState / ThreadJob API** — see
+  [`nu-protocol`](https://docs.rs/nu-protocol) docs.
+- **Custom commands in Nushell** — official guide.
+  ([Nushell](https://www.nushell.sh/book/custom_commands.html))
+- **Parsing and type‑directed evaluation** — Nushell parser intro.
+  ([Docs.rs](https://docs.rs/nu-parser))
+- **Background jobs in Nushell** — why they're implemented as threads, not
+  processes. ([Nushell](https://www.nushell.sh/book/background_jobs.html))
+- **Tokio's `spawn_blocking`** — when to off‑load CPU work.
+  ([Docs.rs](https://docs.rs/tokio/latest/tokio/task/fn.spawn_blocking.html))
+- **Handling Ctrl‑C in Rust** — the `ctrlc` crate.
+  ([Crates.io](https://crates.io/crates/ctrlc))
