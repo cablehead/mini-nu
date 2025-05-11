@@ -49,7 +49,7 @@ cargo run -p p1-basic -- '"hello" | str upcase'
 
 | Crate | One‑liner to try | Expected output |
 |-------|-----------------|-----------------|
-| **[p1‑basic](./p1-basic/README.md)** | `'"hello" | str upcase' | cargo r -p p1-basic` | `HELLO` |
+| **[p1‑basic](./p1-basic/README.md)** | `'"hello" \| str upcase' | cargo r -p p1-basic` | `HELLO` |
 | **[p2‑background](./p2-background/README.md)** | `'^sleep 5; "done"'`` | `done` |
 | **[p3-the-works](./p3-the-works/README.md)** | `'{|_| warble}'` | `warble, oh my` |
 
