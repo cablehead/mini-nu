@@ -1,6 +1,9 @@
-# p1‑basic — embed Nushell and run one command from Rust in 15 lines
+# example: p1‑basic
 
-A microscopic example that boots the Nushell engine inside a Rust binary and executes **one** command.
+_embed Nushell and run one command from Rust in 15 lines_
+
+A microscopic example that boots the Nushell engine inside a Rust binary and
+executes **one** command.
 
 ---
 
@@ -12,17 +15,17 @@ cargo run -p p1-basic -- '"hello, nushell" | str upcase'
 # → HELLO, NUSHELL
 ```
 
-*(See the complete source in [`src/main.rs`](./src/main.rs).)*
+_(See the complete source in [`src/main.rs`](./src/main.rs).)_
 
 ---
 
 ## What this example adds
 
-| Capability | Where it happens |
-| ------------- | ------------- |
-| Boot Nushell engine | [`create_default_context()`](https://docs.rs/nu-cmd-lang/latest/nu_cmd_lang/fn.create_default_context.html) |
-| Inherit host env vars | [`gather_parent_env_vars()`](https://docs.rs/nu-cli/latest/nu_cli/fn.gather_parent_env_vars.html) |
-| Parse + execute code | [`nu_parser::parse`](https://docs.rs/nu-parser/latest/nu_parser/fn.parse.html) → [`eval_block_with_early_return()`](https://docs.rs/nu-engine/latest/nu_engine/fn.eval_block_with_early_return.html) |
+| Capability            | Where it happens                                                                                                                                                                                     |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Boot Nushell engine   | [`create_default_context()`](https://docs.rs/nu-cmd-lang/latest/nu_cmd_lang/fn.create_default_context.html)                                                                                          |
+| Inherit host env vars | [`gather_parent_env_vars()`](https://docs.rs/nu-cli/latest/nu_cli/fn.gather_parent_env_vars.html)                                                                                                    |
+| Parse + execute code  | [`nu_parser::parse`](https://docs.rs/nu-parser/latest/nu_parser/fn.parse.html) → [`eval_block_with_early_return()`](https://docs.rs/nu-engine/latest/nu_engine/fn.eval_block_with_early_return.html) |
 
 ---
 
@@ -55,9 +58,9 @@ println!("{:?}", out.into_value(nu_protocol::Span::unknown())?);
 
 ## Try these next
 
-* `'"hi there" | str length'` – count characters
-* `"10 + 20 * 3"` – quick math
-* `"ls | where type == file | length"` – count files in the current dir
+- `'"hi there" | str length'` – count characters
+- `"10 + 20 * 3"` – quick math
+- `"ls | where type == file | length"` – count files in the current dir
 
 ---
 
@@ -73,15 +76,21 @@ Running tests verifies the engine prints **P1: HELLO WORLD!**
 
 ## What's next?
 
-Want Ctrl‑C handling and background jobs?
-→ **[Continue to `p2-background` ›](../p2-background/README.md)**
+Want Ctrl‑C handling and background jobs? →
+**[Continue to `p2-background` ›](../p2-background/README.md)**
 
 ---
 
 <details>
 <summary>Internals &amp; further reading</summary>
 
-* [How Nushell Code Gets Run](https://www.nushell.sh/book/how_nushell_code_gets_run.html) — deep dive into the pipeline that turns text into executed blocks.
-* [nu-protocol API docs](https://docs.rs/nu-protocol/latest/nu_protocol/) — reference for [`EngineState`](https://docs.rs/nu-protocol/latest/nu_protocol/engine/struct.EngineState.html), [`Stack`](https://docs.rs/nu-protocol/latest/nu_protocol/engine/struct.Stack.html), [`PipelineData`](https://docs.rs/nu-protocol/latest/nu_protocol/struct.PipelineData.html), etc.
+- [How Nushell Code Gets Run](https://www.nushell.sh/book/how_nushell_code_gets_run.html)
+  — deep dive into the pipeline that turns text into executed blocks.
+- [nu-protocol API docs](https://docs.rs/nu-protocol/latest/nu_protocol/) —
+  reference for
+  [`EngineState`](https://docs.rs/nu-protocol/latest/nu_protocol/engine/struct.EngineState.html),
+  [`Stack`](https://docs.rs/nu-protocol/latest/nu_protocol/engine/struct.Stack.html),
+  [`PipelineData`](https://docs.rs/nu-protocol/latest/nu_protocol/struct.PipelineData.html),
+  etc.
 
 </details>
