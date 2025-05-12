@@ -1,8 +1,8 @@
 # Mini‑Nu
 
-_three bite‑sized demos for embedding Nushell in Rust_
+_four bite‑sized demos for embedding Nushell in Rust_
 
-Mini‑Nu shows **three escalating patterns** for running Nushell inside a Rust
+Mini‑Nu shows **four escalating patterns** for running Nushell inside a Rust
 application:
 
 | Example                                        | New capability                                    |
@@ -10,6 +10,7 @@ application:
 | [**p1‑basic**](./p1-basic/README.md)           | Run one Nushell command synchronously             |
 | [**p2‑background**](./p2-background/README.md) | Background thread + Ctrl‑C + external proc kill   |
 | [**p3‑the‑works**](./p3-the-works/README.md)   | Custom commands, multi‑thread pipelines, shutdown |
+| [**p4‑sandbox**](./p4-sandbox/README.md)       | Restricted environment with only filter commands  |
 
 ---
 
@@ -52,6 +53,7 @@ cargo run -p p1-basic -- '"hello" | str upcase'
 | **[p1‑basic](./p1-basic/README.md)**           | `cargo r -p p1-basic '"hello" \| str upcase'` | `HELLO`                                                     |
 | **[p2‑background](./p2-background/README.md)** | `cargo r -p p2-background '^sleep 5; "done"'` | `done`                                                      |
 | **[p3-the-works](./p3-the-works/README.md)**   | `cargo r -p p3-the-works '{\|_\| warble}'`    | `warble, oh my`<br/><small>(for each line of input)</small> |
+| **[p4-sandbox](./p4-sandbox/README.md)**       | `cargo r -p p4-sandbox '"hi" \| wrap msg'`    | `{msg: hi}`                                                 |
 
 ---
 
@@ -75,6 +77,7 @@ mini-nu/
 ├─ p1-basic/         # minimal, single command
 ├─ p2-background/    # adds job control
 ├─ p3-the-works/     # custom cmd + multi-pipeline
+├─ p4-sandbox/       # restricted env (filters only)
 ├─ Cargo.toml        # workspace manifest
 └─ README.md         # you are here
 ```

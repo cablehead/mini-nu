@@ -3,6 +3,7 @@ members = [
     "p1-basic",
     "p2-background",
     "p3-the-works",
+    "p4-sandbox",
 ]
 resolver = "2"
 

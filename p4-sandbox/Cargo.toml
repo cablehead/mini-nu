@@ -1,0 +1,16 @@
+[package]
+name = "p4-sandbox"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+nu-cli = { workspace = true }
+nu-command = { workspace = true }
+nu-protocol = { workspace = true }
+nu-cmd-lang = { workspace = true }
+nu-engine = { workspace = true }
+nu-parser = { workspace = true }
+
+[dev-dependencies]
+assert_cmd = { workspace = true }
+predicates = { workspace = true }

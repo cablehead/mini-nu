@@ -92,6 +92,13 @@ cargo test -p p3-the-works
 
 ---
 
+## What's next?
+
+Want to create a restricted sandbox environment? →
+**[Continue to `p4-sandbox` →](../p4-sandbox/README.md)**
+
+---
+
 ## Need a refresher?
 
 - [← Back to `p2-background`](../p2-background/README.md)
