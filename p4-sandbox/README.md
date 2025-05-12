@@ -14,8 +14,8 @@ without giving access to the host system.
 
 ```
 # From the repo root
-cargo run -p p4-sandbox -- '"hello" | wrap msg | length'
-# → 1
+cargo run -p p4-sandbox -- '[0 1 2] | where $it >= 1 | length'
+# → 2
 
 # Trying to run external commands fails
 cargo run -p p4-sandbox -- '^ls'
