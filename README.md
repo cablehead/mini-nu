@@ -1,8 +1,8 @@
-# Mini‑Nu
+# A guide to embed nushell in your application
 
 _four bite‑sized demos for embedding Nushell in Rust_
 
-Mini‑Nu shows **four escalating patterns** for running Nushell inside a Rust
+This repo shows **four escalating patterns** for running Nushell inside a Rust
 application:
 
 | Example                                        | New capability                                    |
@@ -73,7 +73,7 @@ process table.
 ## Repo layout
 
 ```
-mini-nu/
+/
 ├─ p1-basic/         # minimal, single command
 ├─ p2-background/    # adds job control
 ├─ p3-the-works/     # custom cmd + multi-pipeline
