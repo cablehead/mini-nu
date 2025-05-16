@@ -33,8 +33,8 @@ application:
 ## 30‑second quick‑start
 
 ```
-git clone https://github.com/your-org/mini-nu.git
-cd mini-nu
+git clone https://github.com/cablehead/how-to-embed-nu
+cd how-to-embed-nu
 
 # Build the whole workspace
 cargo build --workspace
