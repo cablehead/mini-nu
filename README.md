@@ -1,9 +1,9 @@
-# A guide to embed nushell in your application
+# A guide to embed Nushell in your application
 
-_four bite‑sized demos for embedding Nushell in Rust_
+_Four bite‑sized demos for embedding Nushell in Rust_
 
-This repo shows **four escalating patterns** for running Nushell inside a Rust
-application:
+This repository demonstrates **four escalating patterns** for running Nushell
+inside a Rust application.
 
 | Example                                        | New capability                                    |
 | ---------------------------------------------- | ------------------------------------------------- |

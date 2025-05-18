@@ -288,8 +288,7 @@ fn setup_ctrlc_handler(
 
                         first_error
                     }
-                    Err(poisoned) => Err(std::io::Error::new(
-                        std::io::ErrorKind::Other,
+                    Err(poisoned) => Err(std::io::Error::other(
                         format!("Jobs mutex poisoned: {}", poisoned),
                     )),
                 }
