@@ -86,15 +86,20 @@ fn create_engine() -> Result<EngineState, Box<dyn std::error::Error>> {
 fn parse_closure(
     engine_state: &mut EngineState,
     closure_snippet: &str,
-) -> Result<Closure, ShellError> {
+) -> Result<Closure, Box<ShellError>> {
     let mut working_set = StateWorkingSet::new(engine_state);
     let block = parse(&mut working_set, None, closure_snippet.as_bytes(), false);
     engine_state.merge_delta(working_set.render())?;
 
     let mut stack = Stack::new();
     let result =
-        eval_block::<WithoutDebug>(engine_state, &mut stack, &block, PipelineData::empty())?;
-    result.into_value(Span::unknown())?.into_closure()
+        eval_block::<WithoutDebug>(engine_state, &mut stack, &block, PipelineData::empty())
+            .map_err(Box::new)?;
+    result
+        .into_value(Span::unknown())
+        .map_err(Box::new)?
+        .into_closure()
+        .map_err(Box::new)
 }
 
 /// Evaluates a Nushell closure with the given input and job number.
@@ -105,32 +110,33 @@ fn eval_closure(
     closure: &Closure,
     input: PipelineData,
     job_number: usize,
-) -> Result<PipelineData, ShellError> {
+) -> Result<PipelineData, Box<ShellError>> {
     let block = &engine_state.get_block(closure.block_id);
 
     // Check if the closure has exactly one required positional argument
     if block.signature.required_positional.len() != 1 {
-        return Err(ShellError::NushellFailedSpanned {
+        return Err(Box::new(ShellError::NushellFailedSpanned {
             msg: "Closure must accept exactly one argument".into(),
             label: format!(
                 "Found {} arguments, expected 1",
                 block.signature.required_positional.len()
             ),
             span: Span::unknown(),
-        });
+        }));
     }
 
     // Add job_number as the single argument
     let Some(var_id) = block.signature.required_positional[0].var_id else {
-        return Err(ShellError::NushellFailedSpanned {
+        return Err(Box::new(ShellError::NushellFailedSpanned {
             msg: "Missing variable id for closure parameter".into(),
             label: "No var_id on required positional".into(),
             span: Span::unknown(),
-        });
+        }));
     };
     stack.add_var(var_id, Value::int(job_number as i64, Span::unknown()));
 
     eval_block_with_early_return::<WithoutDebug>(engine_state, stack, block, input)
+        .map_err(Box::new)
 }
 
 /// Prints the result of Nushell execution in a human-readable format
