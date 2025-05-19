@@ -73,7 +73,7 @@ fn run_script_in_background(
 
     // Add the job to the engine's job table
     let job_id = {
-        let mut jobs = engine_state.jobs.lock().unwrap();
+        let mut jobs = engine_state.jobs.lock().expect("jobs mutex poisoned");
         jobs.add_job(Job::Thread(job.clone()))
     };
 
@@ -115,7 +115,7 @@ fn run_script_in_background(
             }
 
             // Clean up when done - remove job from the shared job table
-            let mut jobs = engine_state.jobs.lock().unwrap();
+            let mut jobs = engine_state.jobs.lock().expect("jobs mutex poisoned");
             jobs.remove_job(job_id);
         })
     };
@@ -153,7 +153,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         if interrupt.load(Ordering::Relaxed) {
             println!("Received interrupt, terminating job...");
             // Kill the job through the job table
-            let mut jobs = engine_state.jobs.lock().unwrap();
+            let mut jobs = engine_state.jobs.lock().expect("jobs mutex poisoned");
             let _ = jobs.kill_and_remove(job_id);
             break;
         }

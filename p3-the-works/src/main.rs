@@ -121,7 +121,13 @@ fn eval_closure(
     }
 
     // Add job_number as the single argument
-    let var_id = block.signature.required_positional[0].var_id.unwrap();
+    let Some(var_id) = block.signature.required_positional[0].var_id else {
+        return Err(ShellError::NushellFailedSpanned {
+            msg: "Missing variable id for closure parameter".into(),
+            label: "No var_id on required positional".into(),
+            span: Span::unknown(),
+        });
+    };
     stack.add_var(var_id, Value::int(job_number as i64, Span::unknown()));
 
     eval_block_with_early_return::<WithoutDebug>(engine_state, stack, block, input)
@@ -156,7 +162,7 @@ fn process_job(engine_state: &EngineState, closure: &Closure, line: &str, job_nu
 
     // Add the job to the engine's job table
     let job_id = {
-        let mut jobs = engine_state.jobs.lock().unwrap();
+        let mut jobs = engine_state.jobs.lock().expect("jobs mutex poisoned");
         jobs.add_job(nu_protocol::engine::Job::Thread(job.clone()))
     };
 
@@ -186,7 +192,7 @@ fn process_job(engine_state: &EngineState, closure: &Closure, line: &str, job_nu
 
     // Remove the job from the job table when done
     {
-        let mut jobs = engine_state.jobs.lock().unwrap();
+        let mut jobs = engine_state.jobs.lock().expect("jobs mutex poisoned");
         jobs.remove_job(job_id);
     }
 }
@@ -214,7 +220,9 @@ async fn process_input_lines(
                 // Track the job and increment counter
                 let current_job = *job_number;
                 {
-                    let mut count = active_jobs.lock().unwrap();
+                    let mut count = active_jobs
+                        .lock()
+                        .expect("active_jobs mutex poisoned");
                     *count += 1;
                 }
 
@@ -239,7 +247,9 @@ async fn process_input_lines(
                     }
 
                     // Decrement active job count when done
-                    let mut count = active_jobs.lock().unwrap();
+                    let mut count = active_jobs
+                        .lock()
+                        .expect("active_jobs mutex poisoned");
                     *count -= 1;
                 });
             }
@@ -288,9 +298,10 @@ fn setup_ctrlc_handler(
 
                         first_error
                     }
-                    Err(poisoned) => Err(std::io::Error::other(
-                        format!("Jobs mutex poisoned: {}", poisoned),
-                    )),
+                    Err(poisoned) => Err(std::io::Error::other(format!(
+                        "Jobs mutex poisoned: {}",
+                        poisoned
+                    ))),
                 }
             } {
                 eprintln!("Error killing jobs: {:?}", err);
@@ -362,7 +373,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Wait for all jobs to complete
     println!("Waiting for all tasks to complete...");
 
-    while *active_jobs.lock().unwrap() > 0 {
+    while *active_jobs.lock().expect("active_jobs mutex poisoned") > 0 {
         sleep(Duration::from_millis(500)).await;
     }
 
