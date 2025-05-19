@@ -4,13 +4,13 @@
   `## "Filters-only" Nushell sandbox with no external commands`. Keep this
   heading casing to avoid distracting from the tagline.
 
-# Commit Messages and Pull Requests Titles
+## Testing
 
-```
-<type>(<scope>): <short description>
+`./scripts/check.sh`
 
-Types:
-feat | fix | docs | style | refactor | perf | test | chore
+All changes must pass these checks.
 
-(e.g. `fix(generators)`, `docs(readme)`).
-```
+## Commits
+
+Use **conventional commit messages** for all commits and PR titles (e.g.
+`feat(nu): add new parser`, `fix(engine): resolve job deadlock`).
