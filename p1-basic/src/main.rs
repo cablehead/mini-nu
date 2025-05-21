@@ -5,8 +5,8 @@ use nu_cmd_lang::create_default_context;
 use nu_command::add_shell_command_context;
 use nu_engine::eval_block_with_early_return;
 use nu_protocol::debugger::WithoutDebug;
-use nu_protocol::engine::{Stack, StateWorkingSet};
-use nu_protocol::{PipelineData, Span, Value};
+use nu_protocol::engine::{Redirection, Stack, StateWorkingSet};
+use nu_protocol::{OutDest, PipelineData, Value};
 
 /// Creates and initializes a Nushell engine with standard commands
 fn create_engine() -> Result<nu_protocol::engine::EngineState, Box<dyn std::error::Error>> {
@@ -48,16 +48,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Execute the parsed block
     let mut stack = Stack::new();
+    // Ensure external commands block until their output is available
+    let mut stack = stack.push_redirection(Some(Redirection::Pipe(OutDest::PipeSeparate)), None);
+
     match eval_block_with_early_return::<WithoutDebug>(
         &engine_state,
         &mut stack,
         &block,
         PipelineData::empty(),
     ) {
-        Ok(pipeline_data) => match pipeline_data.into_value(Span::test_data()) {
-            Ok(value) => print_result(value),
-            Err(err) => eprintln!("Error converting pipeline data: {:?}", err),
-        },
+        Ok(pipeline_data) => {
+            for value in pipeline_data {
+                print_result(value);
+            }
+        }
         Err(error) => {
             eprintln!("Error: {:?}", error);
         }

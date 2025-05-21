@@ -45,13 +45,21 @@ engine.merge_delta(ws.render())?;
 
 // 4. Run the block and print the result
 let mut stack = nu_protocol::engine::Stack::new();
+let mut stack = stack.push_redirection(
+    Some(nu_protocol::engine::Redirection::Pipe(
+        nu_protocol::OutDest::PipeSeparate,
+    )),
+    None,
+);
 let out = nu_engine::eval_block_with_early_return::<nu_protocol::debugger::WithoutDebug>(
     &engine,
     &mut stack,
     &block,
     nu_protocol::PipelineData::empty(),
 )?;
-println!("{:?}", out.into_value(nu_protocol::Span::unknown())?);
+for value in out {
+    println!("{:?}", value);
+}
 ```
 
 ---
