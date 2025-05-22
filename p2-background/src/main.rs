@@ -10,7 +10,7 @@ use nu_protocol::engine::{EngineState, Job, Stack, StateWorkingSet, ThreadJob};
 use nu_protocol::{Id, PipelineData, Signals, Span, Value};
 use std::sync::{
     atomic::{AtomicBool, Ordering},
-    mpsc, Arc,
+    Arc,
 };
 use std::time::Duration;
 
@@ -62,14 +62,11 @@ fn run_script_in_background(
     code_snippet: &str,
 ) -> Result<(Id<nu_protocol::marker::Job>, std::thread::JoinHandle<()>), Box<dyn std::error::Error>>
 {
-    // Create a channel for the thread job
-    let (sender, _receiver) = mpsc::channel();
-
     // Create a new signals object for this job
     let signals = Signals::empty();
 
     // Create a thread job
-    let job = ThreadJob::new(signals.clone(), Some("Script Job".to_string()), sender);
+    let job = ThreadJob::new(signals.clone(), Some("Script Job".to_string()));
 
     // Add the job to the engine's job table
     let job_id = {
@@ -86,7 +83,7 @@ fn run_script_in_background(
         std::thread::spawn(move || {
             // Set the current job context to enable background job tracking in this thread
             let mut thread_local_state = (*engine_state).clone();
-            thread_local_state.current_job.background_thread_job = Some(job);
+            thread_local_state.current_thread_job = Some(job);
 
             let mut stack = Stack::new();
 

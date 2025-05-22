@@ -8,12 +8,12 @@ members = [
 resolver = "2"
 
 [workspace.dependencies]
-nu-cli = "0.104"
-nu-command = "0.104"
-nu-protocol = "0.104"
-nu-cmd-lang = "0.104"
-nu-engine = "0.104"
-nu-parser = "0.104"
+nu-cli = { git = "https://github.com/sholderbach/nushell", branch = "engine-cleaning" }
+nu-command = { git = "https://github.com/sholderbach/nushell", branch = "engine-cleaning" }
+nu-protocol = { git = "https://github.com/sholderbach/nushell", branch = "engine-cleaning" }
+nu-cmd-lang = { git = "https://github.com/sholderbach/nushell", branch = "engine-cleaning" }
+nu-engine = { git = "https://github.com/sholderbach/nushell", branch = "engine-cleaning" }
+nu-parser = { git = "https://github.com/sholderbach/nushell", branch = "engine-cleaning" }
 
 # Testing dependencies shared across packages
 assert_cmd = "2.0"

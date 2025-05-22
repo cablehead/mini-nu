@@ -156,7 +156,7 @@ fn print_result(value: Value, job_number: usize) {
 /// Handles job tracking, execution and cleanup through Nushell's job system.
 fn process_job(engine_state: &EngineState, closure: &Closure, line: &str, job_number: usize) {
     // Create a thread job for this evaluation
-    let (sender, _receiver) = std::sync::mpsc::channel();
+
 
     // Get the signals from the engine state to ensure we're using the same
     // interrupt flag that's connected to Ctrl+C handling
@@ -164,7 +164,7 @@ fn process_job(engine_state: &EngineState, closure: &Closure, line: &str, job_nu
 
     // Create the job
     let job =
-        nu_protocol::engine::ThreadJob::new(signals, Some(format!("Job {}", job_number)), sender);
+        nu_protocol::engine::ThreadJob::new(signals, Some(format!("Job {}", job_number)));
 
     // Add the job to the engine's job table
     let job_id = {
@@ -174,7 +174,7 @@ fn process_job(engine_state: &EngineState, closure: &Closure, line: &str, job_nu
 
     // Create a clone of the engine state with this job as the current job
     let mut local_engine_state = engine_state.clone();
-    local_engine_state.current_job.background_thread_job = Some(job);
+    local_engine_state.current_thread_job = Some(job);
 
     // Process with the local engine state that has the job context
     let mut stack = Stack::new();
